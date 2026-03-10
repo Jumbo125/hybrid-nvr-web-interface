@@ -1,0 +1,80 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 9500,
+    "reload": true
+  },
+  "go2rtc": {
+    "port": 1984
+  },
+  "ffmpeg": {
+    "windows": "ffmpeg/win/ffmpeg.exe",
+    "linux": "ffmpeg/linux/ffmpeg"
+  },
+  "limits": {
+    "max_jobs": 3,
+    "job_ttl_seconds": 1800,
+    "record_token_ttl": 600
+  },
+  "logging": {
+    "enabled": true,
+    "debug": true,
+    "file": "logs/server.log",
+    "max_bytes": 5000000,
+    "backup_count": 5,
+    "request_body_limit": 2000
+  },
+  "camera_defaults": {
+    "scheme": "http",
+    "port": 80,
+    "auth": "digest",
+    "timeout": 10,
+    "hls_time": 2,
+    "transcode": false,
+    "force_z": false,
+    "search_result_position_tag": "searchResultPostion",
+    "search_xmlns": null,
+    "daily_distribution_method": "PUT",
+    "daily_distribution_xmlns": "http://www.isapi.org/ver20/XMLSchema"
+  },
+  "cameras": {
+    "cam1": {
+      "ip": "192.168.254.2",
+      "rtsp_port": 554,
+      "username": "user",
+      "password": "pw",
+      "main": "101",
+      "sub": "102",
+      "name": "description",
+      "order_number": 1,
+      "live_ip": "192.168.254.2",
+      "live_rtsp_port": 554,
+      "live_main": "101",
+      "live_sub": "102",
+      "record_ip": "192.168.178.1",
+      "record_rtsp_port": 554,
+      "record_main": "101",
+      "record_sub": "102"
+    }
+  },
+  "ui": {
+    "header": "Header",
+    "color": "#212529",
+    "lang": "en",
+    "reload": "14400000",
+    "show_psutil": true,
+    "live_gallery_object_fit": "fill"
+  },
+  "record_settings": {
+    "record_list_thumbnail": true,
+    "record_thumbnails_create_timeout_ms": 30000,
+    "frame_from_ms_sec": 1000,
+    "playback_retention_days": 7,
+    "playback_temp_retention_hours": 2,
+    "playback_cleanup_interval_seconds": 21600
+  },
+  "live": {
+    "stream_mode": "auto",
+    "stream_switch_delay_ms": 500
+  }
+}

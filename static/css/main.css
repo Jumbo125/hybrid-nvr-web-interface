@@ -1,0 +1,287 @@
+.record-modal {
+  position: fixed;
+  top: 0;
+  right: -500px; /* Start außerhalb */
+  width: 500px;
+  height: 100%;
+  background: #1e1e1e;
+  z-index: 1050;
+  overflow-y: auto;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+  transition: right 0.3s ease; /* <-- neu */
+}
+
+.record-modal.open {
+  right: 0; /* <-- neu */
+}
+
+#openRecords {
+  /* */
+}
+#searchlist {
+  height: 65vh;
+  overflow: scroll;
+}
+#openRecords i {
+  display: flex;
+}
+
+#live_view_gallery {
+  height: 100vh;
+  overflow: hidden;
+}
+
+#liveGrid {
+  display: grid;
+  height: 95vh;
+  margin-top: 1vh;
+}
+
+#liveGrid > div {
+  border-right: 1px solid white;
+  border-bottom: 1px solid white;
+  position: absolute;
+  overflow: hidden;
+}
+
+#liveGrid > div > video {
+  z-index: 5;
+  width: 98%;
+
+  box-shadow: 0px 0px 3px 0px white;
+  min-height: 80%;
+  border-radius: 3px;
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%);
+  top: 0%;
+  aspect-ratio: 4/3;
+}
+
+#liveGrid > div > video:hover {
+  cursor: pointer;
+}
+
+/* 2 Elemente */
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr;
+}
+
+/* 4 Elemente */
+.grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* 6 Elemente */
+.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+/* 9 Elemente */
+.grid-9 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+
+div#live_view_gallery_header {
+  border-bottom: 2px solid white;
+  box-shadow:
+    4px 1px 2px 0px white,
+    -3px 1px 2px 0px white;
+  border-radius: 5px;
+  padding: 0px 5px 0px 5px;
+  margin: 0px !important;
+  height: 5vh;
+}
+
+.live-tile .live-status {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: none;
+  background: rgba(220, 53, 69, 0.85);
+}
+.live-tile.offline .live-status {
+  display: block;
+}
+
+.live-tile.offline video {
+  opacity: 0.35;
+}
+
+#fullscreen_header_btn {
+  position: absolute;
+  right: 5vw;
+}
+
+#fullscreen_header_btn button:not(.btn-close) {
+  margin-right: 5vw;
+}
+
+.spinner-overlay {
+  position: relative;
+  top: 50%;
+  z-index: 1;
+}
+.spinner-overlay.fullscreen {
+  position: absolute;
+  left: 50%;
+  top: 50;
+}
+
+#modalVideo {
+  position: absolute;
+  z-index: 2;
+}
+
+.video-zoom-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  touch-action: none; /* wichtig */
+  overscroll-behavior: contain;
+}
+
+#modalVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: 0 0;
+  transform: translate(0px, 0px) scale(1);
+  will-change: transform;
+}
+
+.spinner-overlay {
+  pointer-events: none;
+}
+
+/* Config Accordion Buttons: warning-outline */
+.cfg-accordion .cfg-acc-btn {
+  border: 1px solid var(--bs-warning) !important;
+  color: var(--bs-warning) !important;
+  background: transparent !important;
+}
+
+/* Wenn offen: leichtes Warning-Glow */
+.cfg-accordion .accordion-button:not(.collapsed) {
+  background: rgba(255, 193, 7, 0.12) !important;
+}
+
+/* Pfeil/chevron in hell (Bootstrap nutzt background-image) */
+.cfg-accordion .accordion-button::after {
+  filter: invert(1);
+}
+
+/* Inputs/Selects sicher hell auf dark (falls irgendwo vergessen) */
+#configModal .form-control,
+#configModal .form-select {
+  background-color: #212529;
+  color: #f8f9fa;
+  border-color: #6c757d;
+}
+
+#cfgReloadBtn {
+  margin: 0px 1vw 0px 1vw;
+}
+
+/* Fullscreen Lock Overlay */
+.lock-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  inset: 0; /* zusätzlich: top/right/bottom/left = 0 */
+  background: #000;
+  z-index: 2000; /* über Bootstrap (Modal ~1050) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* optional: verhindert Scrollen wenn gelockt */
+body.lock-active {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Content optisch etwas softer */
+.lock-modal-content {
+  padding: 2rem;
+  max-width: 90vw;
+  user-select: none;
+}
+
+.cfg-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+.cfg-sort-ghost {
+  opacity: 0.35;
+}
+
+.cfg-sort-chosen {
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+}
+
+#uiTitle, #uiPsutil {
+  color: white !important;
+  margin-left: 10vw;
+}
+
+.form-control, .form-select{
+  color:white;
+}
+
+div#live_view_gallery_header button {
+  margin-left: 30px;
+}
+
+.btn-close{
+  position: absolute;
+  right: 2vw;
+}
+
+#cfgAlert{
+  position:absolute;
+  bottom: 5vh;
+  width: 100%;
+}
+#liveGrid video {
+  width: 100%;
+  height: 100%;
+}
+
+#liveGrid.hk-live-fit-contain video {
+  object-fit: contain;
+}
+
+#liveGrid.hk-live-fit-cover video {
+  object-fit: cover;
+}
+
+#liveGrid.hk-live-fit-fill video {
+  object-fit: fill;
+}
+
+
+#configModal .modal-fullscreen {
+    width: 100%;
+}
+
+#configModal {
+    width: 85vw;
+    height: 85vh;
+    overflow: hidden;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    position: absolute;
+}

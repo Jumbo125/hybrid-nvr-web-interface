@@ -1,0 +1,721 @@
+<!--
+  Autor: Andreas Rottmann
+  Lizenz: GNU AGPL-3.0
+
+  Hinweis i18n:
+  - Statische Texte wurden mit data-key versehen.
+  - Für Attribute (title/aria-label) wird data-attr genutzt.
+  - Fallback-Texte bleiben im HTML als Inhalt oder data-fallback erhalten.
+-->
+
+<!DOCTYPE html>
+<html lang="de" data-bs-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title data-key="app.title" data-fallback="NVR Control">NVR Control</title>
+
+  <link href="./css/bootstrap.css" rel="stylesheet">
+  <link href="./css/bootstrap-icons.css" rel="stylesheet">
+  <link href="./css/main.css?v=1" rel="stylesheet">
+  <link href="./css/flag-icons.css?v=1" rel="stylesheet">
+  <link rel="icon" type="image/png" href="./favicon/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="./favicon/favicon.svg" />
+  <link rel="shortcut icon" href="./favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./favicon/apple-touch-icon.png" />
+  <link rel="manifest" href="./favicon//site.webmanifest" />
+</head>
+
+<body class="bg-body text-body">
+  <div id="lockModal" class="lock-modal d-none" role="dialog" aria-modal="true" aria-label="Screen Lock"
+    data-key="lock.modal_aria" data-attr="aria-label" data-fallback="Screen Lock">
+    <div class="lock-modal-content text-center">
+      <!-- Inhalt ist aktuell leer (Lock-UI kann später ergänzt werden) -->
+    </div>
+  </div>
+
+  <div id="live_view_gallery" class="container-fluid p-1">
+
+    <div id="live_view_gallery_header" class="d-flex justify-content-between align-items-center mb-3">
+      <h5>
+        <span data-key="live.gallery_title" data-fallback="Live Ansicht">Live Ansicht</span>
+        <span id="uiTitle" class="mb-3"></span>
+        <span id="uiPsutil" class="mb-3" style="display:none;"></span>
+      </h5>
+
+      <div class="d-flex gap-2">
+
+<!-- BROWSER CLOSE -->
+<button id="browser_close_btn" type="button" class="btn btn-outline-danger btn-sm" title="Close browser"
+  data-key="btn.browser_close" data-attr="title" data-fallback="Close browser">
+  <i class="bi bi-x-circle"></i>
+  <span class="visually-hidden" data-key="btn.browser_close" data-fallback="Close browser">Close browser</span>
+</button>
+
+        <!-- REFRESH -->
+        <button id="refresh_btn" type="button" class="btn btn-danger btn-sm" title="Seite neu laden"
+          data-key="btn.refresh" data-attr="title" data-fallback="Seite neu laden">
+          <i class="bi bi-arrow-clockwise"></i>
+          <span class="visually-hidden" data-key="btn.refresh" data-fallback="Seite neu laden">Seite neu laden</span>
+        </button>
+
+        <!-- Auto Reload -->
+        <div id="autoreload"></div>
+
+        <!-- LOCK -->
+        <button id="lock_btn" type="button" class="btn btn-outline-secondary btn-sm" title="Sperren" data-key="btn.lock"
+          data-attr="title" data-fallback="Sperren">
+          <i class="bi bi-lock-fill"></i>
+          <span class="visually-hidden" data-key="btn.lock" data-fallback="Sperren">Sperren</span>
+        </button>
+
+        <!-- Config Button -->
+        <button id="openConfig" class="btn btn-outline-warning" title="Einstellungen" data-key="btn.settings"
+          data-attr="title" data-fallback="Einstellungen">
+          <i class="bi bi-gear"></i>
+          <span class="visually-hidden" data-key="btn.settings" data-fallback="Einstellungen">Einstellungen</span>
+        </button>
+
+        <!-- Toggle Records -->
+        <button id="openRecords" class="btn btn-outline-danger" title="Aufnahmen" data-key="btn.records"
+          data-attr="title" data-fallback="Aufnahmen">
+          <i class="bi bi-record-btn"></i>
+          <span class="visually-hidden" data-key="btn.records" data-fallback="Aufnahmen">Aufnahmen</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Grid -->
+    <div id="liveGrid"></div>
+
+  </div>
+
+  <!-- LIVE FULLSCREEN MODAL -->
+  <div class="modal fade" id="liveModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content bg-body text-body">
+
+        <div class="modal-header border-secondary-subtle">
+          <h5 class="modal-title" id="liveModalTitle" data-key="live.modal_title_default" data-fallback="Live">Live</h5>
+
+          <div id="fullscreen_header_btn" class="d-flex align-items-center gap-2">
+            <span data-key="live.zoom_label_default" data-fallback="Zoom: Default">Zoom: Default</span>
+
+            <button id="modalResetZoomBtn" class="btn btn-outline-secondary btn-sm" type="button"
+              title="Zoom zurücksetzen" data-key="live.zoom_reset_title" data-attr="title"
+              data-fallback="Zoom zurücksetzen">
+              <i class="bi bi-zoom-out"></i>
+              <span class="visually-hidden" data-key="live.zoom_reset_title" data-fallback="Zoom zurücksetzen">Zoom
+                zurücksetzen</span>
+            </button>
+
+            <input id="modalVolume" type="range" min="0" max="1" step="0.05" value="0.5" style="width:120px;"
+              aria-label="Lautstärke" data-key="live.volume" data-attr="aria-label" data-fallback="Lautstärke">
+
+            <button id="modalMuteBtn" class="btn btn-outline-secondary btn-sm" type="button" aria-label="Ton an/aus"
+              data-key="live.mute_toggle" data-attr="aria-label" data-fallback="Ton an/aus">
+              <i id="modalMuteIcon" class="bi bi-volume-mute-fill"></i>
+            </button>
+
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"
+              data-key="common.close" data-attr="aria-label" data-fallback="Schließen"></button>
+          </div>
+        </div>
+
+        <div class="modal-body p-0 d-flex justify-content-center align-items-center position-relative">
+          <div class="spinner-overlay fullscreen d-flex justify-content-center align-items-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden" data-key="common.loading" data-fallback="Loading...">Loading...</span>
+            </div>
+          </div>
+
+          <div id="modalVideoWrap" class="video-zoom-wrap">
+            <video id="modalVideo" autoplay playsinline></video>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORD PLAYBACK MODAL -->
+  <div class="modal fade" id="recordPlaybackModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content bg-body text-body">
+
+        <div class="modal-header border-secondary-subtle">
+          <div class="d-flex flex-column">
+            <h5 class="modal-title" id="recordPlaybackTitle" data-key="records.playback_title_default"
+              data-fallback="Playback">Playback</h5>
+            <div class="small text-body-secondary" id="recordPlaybackSub"></div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <span class="small text-body-secondary" id="recordJobInfo"></span>
+            <button type="button" class="btn-close btn btn-danger" data-bs-dismiss="modal" aria-label="Schließen"
+              data-key="common.close" data-attr="aria-label" data-fallback="Schließen"></button>
+          </div>
+        </div>
+
+        <div class="modal-body p-0 position-relative">
+
+          <!-- Spinner overlay -->
+          <div id="recordSpinner" class="spinner-overlay fullscreen d-flex justify-content-center align-items-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden" data-key="common.loading" data-fallback="Loading...">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Alert -->
+          <div id="recordPlaybackAlert" class="alert alert-warning d-none m-3" role="alert"></div>
+
+          <!-- Status -->
+          <div class="p-3 pb-2">
+            <div class="small text-body-secondary" id="recordPlaybackState"></div>
+          </div>
+
+          <!-- Video -->
+          <video id="recordVideo" controls playsinline preload="auto" class="w-100"
+            style="height: calc(100vh - 170px); object-fit: contain;"></video>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORD MODAL (Side Panel) -->
+  <div id="recordModal" class="record-modal bg-body text-body">
+
+    <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
+      <h4 data-key="records.panel_title" data-fallback="Aufnahmen">Aufnahmen</h4>
+      <button id="closeRecords" class="btn btn-outline-secondary" aria-label="Schließen" data-key="common.close"
+        data-attr="aria-label" data-fallback="Schließen">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="p-3">
+
+      <div id="recordAlert" class="alert alert-warning d-none" role="alert"></div>
+
+      <label for="cameraSelect" class="visually-hidden" data-key="records.label_camera"
+        data-fallback="Kamera">Kamera</label>
+      <select id="cameraSelect" class="form-select mb-2 border-secondary-subtle" aria-label="Kamera"
+        data-key="records.label_camera" data-attr="aria-label" data-fallback="Kamera">
+        <option value="cam1">Cam1</option>
+        <option value="cam2">Cam2</option>
+        <option value="cam3">Cam3</option>
+        <option value="cam4">Cam4</option>
+        <option value="cam5">Cam5</option>
+        <option value="cam6">Cam6</option>
+      </select>
+
+      <label for="recordDate" class="visually-hidden" data-key="records.label_date" data-fallback="Datum">Datum</label>
+      <input type="date" id="recordDate" class="form-control mb-2 border-secondary-subtle" aria-label="Datum"
+        data-key="records.label_date" data-attr="aria-label" data-fallback="Datum">
+
+      <button id="searchBtn" class="btn btn-primary mb-2 w-100">
+        <i class="bi bi-search"></i>
+        <span data-key="records.search_day" data-fallback="Tag suchen">Tag suchen</span>
+      </button>
+
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <button id="prevPageBtn" class="btn btn-success btn-sm" disabled>
+          <i class="bi bi-chevron-left"></i>
+          <span data-key="records.btn_prev" data-fallback="Zurück">Zurück</span>
+        </button>
+
+        <button id="nextPageBtn" class="btn btn-success btn-sm" disabled>
+          <span data-key="records.btn_next" data-fallback="Weiter">Weiter</span>
+          <i class="bi bi-chevron-right"></i>
+        </button>
+
+        <div class="ms-auto small text-body-secondary" id="pageInfo"></div>
+      </div>
+
+      <div id="searchlist">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="width:32%;" data-key="records.th_start" data-fallback="Start">Start</th>
+              <th style="width:32%;" data-key="records.th_end" data-fallback="Ende">Ende</th>
+              <th style="width:20%;" data-key="records.th_duration" data-fallback="Dauer">Dauer</th>
+              <th style="width:16%;" data-key="records.th_action" data-fallback="Aktion">Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="recordTable"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CONFIG MODAL -->
+  <div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content bg-body text-body">
+
+        <div class="modal-header border-secondary-subtle">
+          <h5 class="modal-title">
+            <i class="bi bi-gear me-2"></i>
+            <span data-key="cfg.title" data-fallback="Einstellungen">Einstellungen</span>
+          </h5>
+
+          <div class="d-flex gap-2 align-items-center">
+            <button id="cfgReloadBtn" class="btn btn-primary btn-sm" type="button" title="Neu laden"
+              data-key="cfg.btn_reload_title" data-attr="title" data-fallback="Neu laden">
+              <i class="bi bi-arrow-clockwise"></i>
+              <span class="visually-hidden" data-key="cfg.btn_reload_title" data-fallback="Neu laden">Neu laden</span>
+            </button>
+
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"
+              data-key="common.close" data-attr="aria-label" data-fallback="Schließen"></button>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <div id="cfgAlert" class="alert alert-warning d-none" role="alert"></div>
+
+          <form id="cfgForm">
+
+            <div class="accordion cfg-accordion" id="cfgMainAccordion">
+
+              <!-- UI -->
+              <div class="accordion-item border-secondary-subtle">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed cfg-acc-btn" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#cfgUI">
+                    <span data-key="cfg.section_ui" data-fallback="UI">UI</span>
+                  </button>
+                </h2>
+
+                <div id="cfgUI" class="accordion-collapse collapse" data-bs-parent="#cfgMainAccordion">
+                  <div class="accordion-body text-body">
+
+                    <div class="row g-2">
+                      <div class="col-12 col-md-8">
+                        <label class="form-label" for="cfg_ui_header" data-key="cfg.label_header"
+                          data-fallback="Header">Header</label>
+                        <input id="cfg_ui_header" class="form-control border-secondary-subtle" type="text">
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_ui_color" data-key="cfg.label_color"
+                          data-fallback="Farbe">Farbe</label>
+                        <input id="cfg_ui_color" class="form-control form-control-color border-secondary-subtle w-100"
+                          type="color" value="#0d6efd">
+                      </div>
+                    </div>
+
+                    <div class="row g-2 mt-2">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="cfg_ui_lang" data-key="cfg.label_language"
+                          data-fallback="Sprache">Sprache</label>
+                        <select id="cfg_ui_lang" class="form-select border-secondary-subtle"></select>
+                      </div>
+                    </div>
+
+                    <div class="row g-2 mt-2">
+                      <div class="col-12 col-md-8">
+                        <label class="form-label" for="cfg_ui_reload" data-key="cfg.label_browser_reload"
+                          data-fallback="Auto Reload Browser (ms 0 = disabled)">
+                          Auto Reload Browser (ms 0 = disabled)
+                        </label>
+                        <input id="cfg_ui_reload" class="form-control border-secondary-subtle" type="number">
+                      </div>
+                    </div>
+
+
+                    <!-- video gallery ansicht cover, cotain etc-->
+                    <div class="row g-2 mt-2">
+                      <div class="col-12">
+                        <label class="form-label mb-1" for="cfg_ui_live_gallery_object_fit"
+                          data-key="cfg.label_live_gallery_object_fit" data-fallback="Live-Galerie Bildanpassung">
+                          Live-Galerie Bildanpassung
+                        </label>
+
+                        <select class="form-select" id="cfg_ui_live_gallery_object_fit">
+                          <option value="contain" data-key="cfg.option_live_gallery_object_fit_contain">
+                            Einpassen (Contain)
+                          </option>
+                          <option value="cover" data-key="cfg.option_live_gallery_object_fit_cover" selected>
+                            Ausfüllen mit Beschnitt (Cover)
+                          </option>
+                          <option value="fill" data-key="cfg.option_live_gallery_object_fit_fill">
+                            Strecken / Verzerren (Fill)
+                          </option>
+                        </select>
+
+                        <div class="small text-body-secondary mt-1" data-key="cfg.help_live_gallery_object_fit"
+                          data-fallback="Legt fest, wie Videos innerhalb der Live-Galerie-Kacheln dargestellt werden.">
+                          Legt fest, wie Videos innerhalb der Live-Galerie-Kacheln dargestellt werden.
+                        </div>
+
+                        <div class="small text-body-secondary mt-2">
+                          <div data-key="cfg.help_live_gallery_object_fit_contain"
+                            data-fallback="Einpassen: Das komplette Video bleibt sichtbar. Es können leere Ränder entstehen.">
+                            <strong>Einpassen:</strong> Das komplette Video bleibt sichtbar. Es können leere Ränder
+                            entstehen.
+                          </div>
+                          <div data-key="cfg.help_live_gallery_object_fit_cover"
+                            data-fallback="Cover: Die Kachel wird vollständig gefüllt. Teile des Bildes können abgeschnitten werden.">
+                            <strong>Cover:</strong> Die Kachel wird vollständig gefüllt. Teile des Bildes können
+                            abgeschnitten werden.
+                          </div>
+                          <div data-key="cfg.help_live_gallery_object_fit_fill"
+                            data-fallback="Strecken: Die Kachel wird vollständig gefüllt, das Bild kann dabei verzerrt werden.">
+                            <strong>Strecken:</strong> Die Kachel wird vollständig gefüllt, das Bild kann dabei verzerrt
+                            werden.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- PC Auslastung anzeigen -->
+                    <div class="row g-2 mt-2">
+                      <div class="col-12">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" role="switch" id="cfg_ui_show_psutil">
+                          <label class="form-check-label" for="cfg_ui_show_psutil" data-key="cfg.label_show_pc_load"
+                            data-fallback="PC-Auslastung zeigen">
+                            PC-Auslastung zeigen
+                          </label>
+                        </div>
+                        <div class="small text-body-secondary" data-key="cfg.help_show_pc_load"
+                          data-fallback="Zeigt die aktuelle PC-/Systemauslastung im Header an.">
+                          Zeigt die aktuelle PC-/Systemauslastung im Header an.
+                        </div>
+                      </div>
+                    </div>
+
+
+
+                    <!-- stream mode -->
+
+                    <div class="row g-2 mt-3">
+                      <div class="col-12">
+                        <label class="form-label d-block" for="cfg_live_stream_mode_auto"
+                          data-key="cfg.label_live_stream_mode" data-fallback="Live Stream Modus">Live Stream
+                          Modus</label>
+
+                        <div class="form-check mb-2">
+                          <input class="form-check-input" type="radio" name="cfg_live_stream_mode"
+                            id="cfg_live_stream_mode_auto" value="auto" checked>
+                          <label class="form-check-label" for="cfg_live_stream_mode_auto"
+                            data-key="cfg.live_stream_mode_auto" data-fallback="Automatisch">
+                            Automatisch
+                          </label>
+                          <div class="small text-body-secondary" data-key="cfg.live_stream_mode_auto_help"
+                            data-fallback="Gallery = Substream, Fullscreen = Mainstream. Best Practice für hohe Auflösung und geringe CPU-Last, aber mit Umschalt-Delay und möglichen Recorder-Problemen beim schnellen Wechsel.">
+                            Gallery = Substream, Fullscreen = Mainstream. Best Practice für hohe Auflösung und geringe
+                            CPU-Last,
+                            aber mit Umschalt-Delay und möglichen Recorder-Problemen beim schnellen Wechsel.
+                          </div>
+                        </div>
+
+                        <div class="form-check mb-2">
+                          <input class="form-check-input" type="radio" name="cfg_live_stream_mode"
+                            id="cfg_live_stream_mode_main" value="main">
+                          <label class="form-check-label" for="cfg_live_stream_mode_main"
+                            data-key="cfg.live_stream_mode_main" data-fallback="Gallery + Fullscreen = Mainstream">
+                            Gallery + Fullscreen = Mainstream
+                          </label>
+                          <div class="small text-body-secondary" data-key="cfg.live_stream_mode_main_help"
+                            data-fallback="Hohe Auflösung, wenig Delay, aber höhere CPU-/Bandbreitenlast. Kein Stream-Wechsel zwischen Gallery und Fullscreen.">
+                            Hohe Auflösung, wenig Delay, aber höhere CPU-/Bandbreitenlast.
+                            Kein Stream-Wechsel zwischen Gallery und Fullscreen.
+                          </div>
+                        </div>
+
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="cfg_live_stream_mode"
+                            id="cfg_live_stream_mode_sub" value="sub">
+                          <label class="form-check-label" for="cfg_live_stream_mode_sub"
+                            data-key="cfg.live_stream_mode_sub" data-fallback="Gallery + Fullscreen = Substream">
+                            Gallery + Fullscreen = Substream
+                          </label>
+                          <div class="small text-body-secondary" data-key="cfg.live_stream_mode_sub_help"
+                            data-fallback="Geringere Auflösung, wenig CPU-Last, wenig Delay. Kein Stream-Wechsel zwischen Gallery und Fullscreen.">
+                            Geringere Auflösung, wenig CPU-Last, wenig Delay.
+                            Kein Stream-Wechsel zwischen Gallery und Fullscreen.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kameras -->
+              <div class="accordion-item border-secondary-subtle">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed cfg-acc-btn" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#cfgCameras">
+                    <span data-key="cfg.section_cameras" data-fallback="Kameras">Kameras</span>
+                  </button>
+                </h2>
+                <div id="cfgCameras" class="accordion-collapse collapse" data-bs-parent="#cfgMainAccordion">
+                  <div class="accordion-body text-body">
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div class="small text-body-secondary" data-key="cfg.cameras_hint"
+                        data-fallback="Username/Passwort werden nicht angezeigt. Leer lassen = behalten.">
+                        Username/Passwort werden nicht angezeigt. Leer lassen = behalten.
+                      </div>
+                      <button id="cfgAddCamera" type="button" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-plus-lg"></i>
+                        <span data-key="cfg.btn_add_camera" data-fallback="Kamera">Kamera</span>
+                      </button>
+                    </div>
+
+                    <div class="accordion" id="cfgCameraAccordion"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Aufnahmen -->
+              <div class="accordion-item border-secondary-subtle">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed cfg-acc-btn" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#cfgRecords">
+                    <span data-key="cfg.section_records_list" data-fallback="Aufnahmen-Liste">Aufnahmen-Liste</span>
+                  </button>
+                </h2>
+                <div id="cfgRecords" class="accordion-collapse collapse" data-bs-parent="#cfgMainAccordion">
+                  <div class="accordion-body text-body">
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox" role="switch" id="cfg_record_list_thumbnail">
+                      <label class="form-check-label" for="cfg_record_list_thumbnail" data-key="cfg.label_thumbnails"
+                        data-fallback="Thumbnails in der Liste anzeigen">
+                        Thumbnails in der Liste anzeigen
+                      </label>
+                    </div>
+
+                    <div class="row g-2">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="cfg_thumb_timeout_ms" data-key="cfg.label_thumb_timeout"
+                          data-fallback="Thumbnail Timeout (ms)">
+                          Thumbnail Timeout (ms)
+                        </label>
+                        <input id="cfg_thumb_timeout_ms" class="form-control border-secondary-subtle" type="number"
+                          min="0" step="100" value="3000">
+                      </div>
+
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="cfg_thumb_frame_second" data-key="cfg.label_thumb_frame"
+                          data-fallback="Thumbnail Frame (Sekunde)">
+                          Thumbnail Frame (Sekunde)
+                        </label>
+                        <input id="cfg_thumb_frame_second" class="form-control border-secondary-subtle" type="number"
+                          min="0" step="1" value="">
+                        <div class="small text-body-secondary" data-key="cfg.help_thumb_frame"
+                          data-fallback="Sekunde im Clip, aus der das Thumbnail gerendert wird.">
+                          Sekunde im Clip, aus der das Thumbnail gerendert wird.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row g-2 mt-2">
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_playback_retention_days"
+                          data-key="cfg.label_playback_retention_days" data-fallback="Playback Aufbewahrung (Tage)">
+                          Playback Aufbewahrung (Tage)
+                        </label>
+                        <input id="cfg_playback_retention_days" class="form-control border-secondary-subtle"
+                          type="number" min="1" step="1" value="7">
+                        <div class="small text-body-secondary" data-key="cfg.help_playback_retention_days"
+                          data-fallback="Wie viele Tage fertige Playback-Dateien vorgehalten werden.">
+                          Wie viele Tage fertige Playback-Dateien vorgehalten werden.
+                        </div>
+                      </div>
+
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_playback_temp_retention_hours"
+                          data-key="cfg.label_playback_temp_retention_hours"
+                          data-fallback="Temporäre Playback-Dateien (Stunden)">
+                          Temporäre Playback-Dateien (Stunden)
+                        </label>
+                        <input id="cfg_playback_temp_retention_hours" class="form-control border-secondary-subtle"
+                          type="number" min="1" step="1" value="2">
+                        <div class="small text-body-secondary" data-key="cfg.help_playback_temp_retention_hours"
+                          data-fallback="Wie lange temporäre Playback-Dateien behalten werden.">
+                          Wie lange temporäre Playback-Dateien behalten werden.
+                        </div>
+                      </div>
+
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_playback_cleanup_interval_seconds"
+                          data-key="cfg.label_playback_cleanup_interval_seconds"
+                          data-fallback="Playback Cleanup Intervall (Sek.)">
+                          Playback Cleanup Intervall (Sek.)
+                        </label>
+                        <input id="cfg_playback_cleanup_interval_seconds" class="form-control border-secondary-subtle"
+                          type="number" min="60" step="60" value="21600">
+                        <div class="small text-body-secondary" data-key="cfg.help_playback_cleanup_interval_seconds"
+                          data-fallback="Intervall für die automatische Bereinigung von Playback-Dateien.">
+                          Intervall für die automatische Bereinigung von Playback-Dateien.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+<!-- Limits -->
+<div class="accordion-item border-secondary-subtle">
+  <h2 class="accordion-header">
+    <button class="accordion-button collapsed cfg-acc-btn" type="button" data-bs-toggle="collapse"
+      data-bs-target="#cfgLimits">
+      <span data-key="cfg.section_limits" data-fallback="Limits">Limits</span>
+    </button>
+  </h2>
+  <div id="cfgLimits" class="accordion-collapse collapse" data-bs-parent="#cfgMainAccordion">
+    <div class="accordion-body text-body">
+      <div class="row g-2">
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label" for="cfg_max_jobs" data-key="cfg.label_max_jobs"
+            data-fallback="Max Jobs">Max Jobs</label>
+          <input id="cfg_max_jobs" class="form-control border-secondary-subtle" type="number" min="1"
+            step="1">
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label" for="cfg_job_ttl" data-key="cfg.label_job_ttl"
+            data-fallback="Job TTL (Sek.)">Job TTL (Sek.)</label>
+          <input id="cfg_job_ttl" class="form-control border-secondary-subtle" type="number" min="1"
+            step="1">
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label" for="cfg_token_ttl" data-key="cfg.label_record_token_ttl"
+            data-fallback="Record Token TTL (Sek.)">
+            Record Token TTL (Sek.)
+          </label>
+          <input id="cfg_token_ttl" class="form-control border-secondary-subtle" type="number" min="1"
+            step="1">
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-3">
+          <label class="form-label" for="cfg_stream_switch_delay_ms"
+            data-key="cfg.label_stream_switch_delay_ms"
+            data-fallback="Stream-Wechsel Wartezeit (ms)">
+            Stream-Wechsel Wartezeit (ms)
+          </label>
+          <input id="cfg_stream_switch_delay_ms"
+            class="form-control border-secondary-subtle"
+            type="number"
+            min="0"
+            step="50">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+              <!-- Erweitert -->
+              <div class="accordion-item border-secondary-subtle">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed cfg-acc-btn" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#cfgAdvanced">
+                    <span data-key="cfg.section_advanced"
+                      data-fallback="Erweiterte Einstellungen (Python / ffmpeg / go2rtc)">
+                      Erweiterte Einstellungen (Python / ffmpeg / go2rtc)
+                    </span>
+                  </button>
+                </h2>
+                <div id="cfgAdvanced" class="accordion-collapse collapse" data-bs-parent="#cfgMainAccordion">
+                  <div class="accordion-body text-body">
+
+                    <div class="row g-2 mb-3">
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_server_host" data-key="cfg.label_python_host"
+                          data-fallback="Python Host">Python Host</label>
+                        <input id="cfg_server_host" class="form-control border-secondary-subtle" type="text">
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_server_port" data-key="cfg.label_python_port"
+                          data-fallback="Python Port">Python Port</label>
+                        <input id="cfg_server_port" class="form-control border-secondary-subtle" type="number" min="1"
+                          max="65535">
+                      </div>
+                      <div class="col-12 col-md-4 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" role="switch" id="cfg_server_reload">
+                          <label class="form-check-label" for="cfg_server_reload" data-key="cfg.label_server_reload"
+                            data-fallback="Reload">Reload</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                      <div class="col-12 col-md-4">
+                        <label class="form-label" for="cfg_go2rtc_port" data-key="cfg.label_go2rtc_port"
+                          data-fallback="go2rtc Port">go2rtc Port</label>
+                        <input id="cfg_go2rtc_port" class="form-control border-secondary-subtle" type="number" min="1"
+                          max="65535">
+                      </div>
+                    </div>
+
+                    <div class="row g-2">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="cfg_ffmpeg_linux" data-key="cfg.label_ffmpeg_linux"
+                          data-fallback="ffmpeg (Linux)">ffmpeg (Linux)</label>
+                        <input id="cfg_ffmpeg_linux" class="form-control border-secondary-subtle" type="text">
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="cfg_ffmpeg_windows" data-key="cfg.label_ffmpeg_windows"
+                          data-fallback="ffmpeg (Windows)">ffmpeg (Windows)</label>
+                        <input id="cfg_ffmpeg_windows" class="form-control border-secondary-subtle" type="text">
+                      </div>
+                    </div>
+
+                    <div class="small text-body-secondary mt-2" data-key="cfg.help_restart_required"
+                      data-fallback="Python Host/Port greifen erst nach Neustart.">
+                      Python Host/Port greifen erst nach Neustart.
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /cfgMainAccordion -->
+
+          </form>
+        </div>
+
+        <div class="modal-footer border-secondary-subtle">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal" data-key="cfg.btn_close"
+            data-fallback="Schließen">Schließen</button>
+
+          <button id="cfgSaveBtn" class="btn btn-primary" type="button">
+            <i class="bi bi-save"></i>
+            <span data-key="cfg.btn_save" data-fallback="Speichern">Speichern</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- JS (Bootstrap VOR den NVR-Skripten) -->
+  <script src="/static/js/jquery.min.js"></script>
+  <script src="/static/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Split JS -->
+  <script src="/static/js/config.js?v=2"></script>
+  <script src="/static/js/lang.js?v=2"></script>
+  <script src="/static/js/init.js?v=2"></script>
+  <script src="/static/js/psutilis.js?v=2"></script>
+  <script src="/static/js/change_ui_color.js?v=2"></script>
+  <script src="/static/js/reload_close.js?v=2"></script>
+  <script src="/static/js/config_modal.js?v=1"></script>
+  <script src="/static/js/lock.js?v=1"></script>
+  <script src="/static/js/sortable.js?v=1"></script>
+  <script src="/static/js/live_common.js?v=2"></script>
+  <script src="/static/js/live_gallery.js?v=1"></script>
+  <script src="/static/js/live_fullscreen.js?v=2"></script>
+  <script src="/static/js/records.js?v=1"></script>
+
+</body>
+
+</html>
