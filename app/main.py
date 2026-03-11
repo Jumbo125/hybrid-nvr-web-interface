@@ -1,3 +1,9 @@
+# ---------------------
+#  Autor: Andreas Rottmann
+#  Lizenz: GNU AGPL-3.0
+# --------------------
+
+
 from __future__ import annotations
 
 """

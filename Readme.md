@@ -1,36 +1,44 @@
-cat > README.md <<'EOF'
 <p align="center">
   <img src="Logo/Logo.png" alt="Hikvision Hybrid NVR Web Interface Logo" width="180">
 </p>
 
 # hikvision-nvr-web-interface
 
+<p align="center">
+  <a href="#english">English</a> | <a href="#deutsch">Deutsch</a>
+</p>
+
+---
+
+## English
+
+<a id="english"></a>
+
 Lightweight hybrid Hikvision NVR web interface for live view, record search and playback using go2rtc, FastAPI, ffmpeg and jQuery.
 
 ## Preview
 
-> Die folgenden Screenshots sind anonymisiert.
+> The following screenshots have been anonymized.
 
 <p align="center">
-  <img src="./preview/anonymized_01_gallery.webp" width="49%" alt="Galerieansicht" />
-  <img src="./preview/anonymized_02_settings_overlay.webp" width="49%" alt="Einstellungs-Overlay" />
+  <img src="./preview/anonymized_01_gallery.webp" width="49%" alt="Gallery view" />
+  <img src="./preview/anonymized_02_settings_overlay.webp" width="49%" alt="Settings overlay" />
 </p>
 
 <p align="center">
-  <img src="./preview/anonymized_03_ui_settings.webp" width="49%" alt="UI-Einstellungen" />
-  <img src="./preview/anonymized_04_camera_settings.webp" width="49%" alt="Kamera-Einstellungen" />
+  <img src="./preview/anonymized_03_ui_settings.webp" width="49%" alt="UI settings" />
+  <img src="./preview/anonymized_04_camera_settings.webp" width="49%" alt="Camera settings" />
 </p>
 
 <p align="center">
-  <img src="./preview/anonymized_05_recordings.webp" width="49%" alt="Aufnahmen-Ansicht" />
-  <img src="./preview/anonymized_06_single_camera.webp" width="49%" alt="Einzelkamera-Ansicht" />
+  <img src="./preview/anonymized_05_recordings.webp" width="49%" alt="Recordings view" />
+  <img src="./preview/anonymized_06_single_camera.webp" width="49%" alt="Single camera view" />
 </p>
-
 
 ## Why jQuery?
 
 This project was intentionally built with **jQuery**.  
-I can build this type of compact, touch-oriented local web interface faster, cleaner and more reliably with jQuery than with modern ES6+ frontend frameworks.
+I can build this type of compact, touch-oriented local web interface faster, cleaner and more reliably with jQuery than with many modern frontend frameworks.
 
 ## Thanks
 
@@ -41,7 +49,7 @@ Special thanks to:
 
 ## Overview
 
-This project is a lightweight, web-based camera and NVR interface for:
+This project is a lightweight web-based camera and NVR interface for:
 
 - live view
 - record search
@@ -57,11 +65,11 @@ It combines:
 
 The goal is a practical alternative to classic recorder web interfaces, especially for local monitoring systems, mini PCs and touchscreen setups.
 
-## Core idea
+## Core Idea
 
 The project is built around a strict separation of responsibilities.
 
-### Live view
+### Live View
 
 Live streams are handled by **go2rtc** and go directly to the browser.
 
@@ -69,7 +77,7 @@ Live streams are handled by **go2rtc** and go directly to the browser.
 Camera -> go2rtc -> Browser
 ```
 
-### Record search and playback
+### Record Search and Playback
 
 Recorded video search and playback are handled separately through the Python backend.
 
@@ -90,7 +98,7 @@ This keeps the system modular, stable and lightweight.
 | Playback download/remux | ffmpeg + FastAPI |
 | UI | Bootstrap + jQuery |
 
-### Recommended architecture
+### Recommended Architecture
 
 ```text
 Live:
@@ -100,7 +108,7 @@ Records / Search / Playback:
 Browser -> FastAPI -> NVR
 ```
 
-### Not recommended
+### Not Recommended
 
 ```text
 Camera -> NVR -> RTSP -> go2rtc -> Browser
@@ -121,7 +129,7 @@ In practice, direct camera RTSP for live view is often more stable than going th
 - Linux kiosk mode support
 - systemd service support
 
-## Tech stack
+## Tech Stack
 
 - Python 3
 - FastAPI
@@ -140,7 +148,23 @@ git clone https://github.com/USERNAME/hikvision-nvr-web-interface.git
 cd hikvision-nvr-web-interface
 ```
 
-### 2. Install dependencies
+### 2. Third-party software
+
+The repository does **not** include all third-party software and bundled assets.
+
+Depending on your setup, components such as:
+
+- `go2rtc`
+- `ffmpeg`
+- `jQuery`
+- `Bootstrap`
+- other external runtime files
+
+are **not included directly in the repository** and are instead expected to come from the **release package/files** or be installed/provided locally.
+
+Please make sure these third-party components are available before starting the project.
+
+### 3. Install Python dependencies
 
 ```bash
 ./1_install.sh
@@ -156,7 +180,7 @@ What this script does:
 - upgrades `pip`
 - installs dependencies from `requirements.txt`
 
-### 3. Start the server
+### 4. Start the server
 
 ```bash
 ./start.sh
@@ -168,11 +192,11 @@ This starts the project using the local virtual environment and launches:
 python -m app.main --workers 1
 ```
 
-### Important note
+### Important Note
 
 `start.sh` currently mentions `install.sh`, while your installer file is named `1_install.sh`.
 
-### 4. Open the UI
+### 5. Open the UI
 
 Default local URL used by the kiosk launcher:
 
@@ -249,6 +273,7 @@ You will likely need to adjust the `Exec=` path for your own system.
 │  └─ playback_logs/
 ├─ Logo/
 │  └─ Logo.png
+├─ preview/
 ├─ 1_install.sh
 ├─ 2_install_systemd.sh
 ├─ start.sh
@@ -259,7 +284,7 @@ You will likely need to adjust the `Exec=` path for your own system.
 └─ requirements.txt
 ```
 
-## Runtime folders
+## Runtime Folders
 
 The playback workflow uses these directories:
 
@@ -306,7 +331,7 @@ The go2rtc configuration supports:
 - optional `go2rtc.username`
 - optional `go2rtc.password`
 
-## Playback workflow
+## Playback Workflow
 
 The current playback flow is file-based and does **not** use HLS.
 
@@ -452,7 +477,7 @@ Use the **NVR / recorder** for:
 
 Do not replace recorder-based playback logic with direct camera IPs if your backend is built around Hikvision NVR ISAPI records.
 
-## Hikvision direct RTSP notes
+## Hikvision Direct RTSP Notes
 
 For Hikvision setups with internal PoE camera networks, the recommended approach is:
 
@@ -484,14 +509,17 @@ ffprobe -hide_banner -rtsp_transport tcp \
   -i 'rtsp://admin:PASSWORT@192.168.254.2:554/Streaming/Channels/101'
 ```
 
-## Notes on third-party components
+## Notes on Third-Party Components
 
-For third-party binaries such as:
+For third-party binaries and libraries such as:
 
 - `ffmpeg`
 - `go2rtc`
+- `jQuery`
+- `Bootstrap`
 
-it is usually better to **not** commit platform binaries directly into the repository. Document them in the README and let users place them locally.
+the repository may intentionally not include all bundled files.  
+Please use the provided **release files/package** or add the required components locally.
 
 What is fine to keep in the repository:
 
@@ -501,7 +529,7 @@ What is fine to keep in the repository:
 - ffmpeg command examples
 - go2rtc configuration snippets
 
-## Target use cases
+## Target Use Cases
 
 This project is especially suited for:
 
@@ -511,11 +539,551 @@ This project is especially suited for:
 - replacement for unstable vendor web interfaces
 - hybrid environments with direct camera live view and recorder-based playback
 
+## Author
+
+**Jumbo125**
+
 ## License
 
-Add your preferred license here, for example:
+Author: **Andreas Rottmann**  
+License: **GNU AGPL-3.0**
+
+---
+
+## Deutsch
+
+<a id="deutsch"></a>
+
+Leichtgewichtige hybride Hikvision-NVR-Weboberfläche für Live-Ansicht, Aufnahmesuche und Wiedergabe mit go2rtc, FastAPI, ffmpeg und jQuery.
+
+## Vorschau
+
+> Die folgenden Screenshots sind anonymisiert.
+
+<p align="center">
+  <img src="./preview/anonymized_01_gallery.webp" width="49%" alt="Galerieansicht" />
+  <img src="./preview/anonymized_02_settings_overlay.webp" width="49%" alt="Einstellungs-Overlay" />
+</p>
+
+<p align="center">
+  <img src="./preview/anonymized_03_ui_settings.webp" width="49%" alt="UI-Einstellungen" />
+  <img src="./preview/anonymized_04_camera_settings.webp" width="49%" alt="Kamera-Einstellungen" />
+</p>
+
+<p align="center">
+  <img src="./preview/anonymized_05_recordings.webp" width="49%" alt="Aufnahmen-Ansicht" />
+  <img src="./preview/anonymized_06_single_camera.webp" width="49%" alt="Einzelkamera-Ansicht" />
+</p>
+
+## Warum jQuery?
+
+Dieses Projekt wurde bewusst mit **jQuery** umgesetzt.  
+Solche kompakten, touch-orientierten lokalen Weboberflächen kann ich damit schneller, sauberer und zuverlässiger erstellen als mit vielen modernen Frontend-Frameworks.
+
+## Dank
+
+Besonderer Dank an:
+
+- **go2rtc** für effizientes Live-Streaming mit geringer Latenz
+- **ffmpeg** für die leistungsstarke Medienverarbeitung und das Remuxing für Wiedergabe und Vorschaubilder
+
+## Überblick
+
+Dieses Projekt ist eine leichtgewichtige webbasierte Kamera- und NVR-Oberfläche für:
+
+- Live-Ansicht
+- Aufnahmesuche
+- Wiedergabe
+- touchfreundliche lokale Bedienung
+
+Es kombiniert:
+
+- **go2rtc** für effizientes Live-Streaming
+- **FastAPI** für API, Aufnahmesuche und Wiedergabelogik
+- **ffmpeg** für Remuxing und Thumbnail-Erstellung
+- **Bootstrap + jQuery** für das Frontend
+
+Das Ziel ist eine praktische Alternative zu klassischen Recorder-Weboberflächen, besonders für lokale Überwachungssysteme, Mini-PCs und Touchscreen-Setups.
+
+## Grundidee
+
+Das Projekt basiert auf einer klaren Trennung der Zuständigkeiten.
+
+### Live-Ansicht
+
+Live-Streams werden von **go2rtc** verarbeitet und direkt an den Browser geliefert.
 
 ```text
-GNU AGPL-3.0
+Kamera -> go2rtc -> Browser
 ```
-EOF
+
+### Aufnahmesuche und Wiedergabe
+
+Aufnahmesuche und Wiedergabe erfolgen getrennt über das Python-Backend.
+
+```text
+Browser -> FastAPI -> Hikvision NVR / ISAPI -> ffmpeg -> MP4 -> Browser
+```
+
+Dadurch bleibt das System modular, stabil und leichtgewichtig.
+
+## Architektur
+
+### Zuständigkeiten
+
+| Bereich | Komponente |
+|---|---|
+| Live-Streaming | go2rtc |
+| Aufnahmesuche | FastAPI |
+| Wiedergabe-Download/Remux | ffmpeg + FastAPI |
+| UI | Bootstrap + jQuery |
+
+### Empfohlene Architektur
+
+```text
+Live:
+Kamera -> go2rtc -> Browser
+
+Aufnahmen / Suche / Wiedergabe:
+Browser -> FastAPI -> NVR
+```
+
+### Nicht empfohlen
+
+```text
+Kamera -> NVR -> RTSP -> go2rtc -> Browser
+```
+
+In der Praxis ist direkter Kamera-RTSP für die Live-Ansicht oft stabiler als der Weg über den RTSP-Pfad des NVR.
+
+## Funktionen
+
+- Live-Galerie für mehrere Kameras
+- Substream in der Galerie, Mainstream in Vollbild/Modal
+- Aufnahmesuche nach Kamera und Zeitraum
+- direkte Wiedergabe aus Suchergebnissen
+- Thumbnail-Erzeugung
+- dynamisches Grid-Layout
+- go2rtc-Sync aus der Konfiguration
+- touchfreundliche Browser-Bedienung
+- Linux-Kioskmodus-Unterstützung
+- systemd-Service-Unterstützung
+
+## Technologie-Stack
+
+- Python 3
+- FastAPI
+- Uvicorn
+- go2rtc
+- ffmpeg
+- Bootstrap
+- jQuery
+
+## Schnellstart
+
+### 1. Repository klonen
+
+```bash
+git clone https://github.com/USERNAME/hikvision-nvr-web-interface.git
+cd hikvision-nvr-web-interface
+```
+
+### 2. Drittanbieter-Software
+
+Das Repository enthält **nicht** alle Drittanbieter-Komponenten und gebündelten Dateien.
+
+Je nach Setup sind Komponenten wie:
+
+- `go2rtc`
+- `ffmpeg`
+- `jQuery`
+- `Bootstrap`
+- weitere externe Laufzeitdateien
+
+**nicht direkt im Repository enthalten**, sondern werden über die **Release-Dateien / das Release-Paket** bereitgestellt oder müssen lokal ergänzt werden.
+
+Bitte stelle vor dem Start sicher, dass diese Komponenten vorhanden sind.
+
+### 3. Python-Abhängigkeiten installieren
+
+```bash
+./1_install.sh
+```
+
+Dieses Skript:
+
+- prüft, ob `python3` vorhanden ist
+- versucht Python bei Bedarf automatisch zu installieren
+- unterstützt mehrere Paketmanager
+- erstellt oder repariert ein lokales `venv`
+- stellt sicher, dass `pip` im `venv` verfügbar ist
+- aktualisiert `pip`
+- installiert die Abhängigkeiten aus `requirements.txt`
+
+### 4. Server starten
+
+```bash
+./start.sh
+```
+
+Dadurch wird das Projekt mit der lokalen virtuellen Umgebung gestartet und ausgeführt mit:
+
+```bash
+python -m app.main --workers 1
+```
+
+### Wichtiger Hinweis
+
+`start.sh` verweist derzeit auf `install.sh`, während deine Installer-Datei `1_install.sh` heißt.
+
+### 5. UI öffnen
+
+Standard-URL für den lokalen Kiosk-Launcher:
+
+```text
+http://127.0.0.1:9500
+```
+
+## Linux-Service-Setup
+
+Um die App als systemd-Service zu installieren, verwende:
+
+```bash
+./2_install_systemd.sh
+```
+
+Dieses Skript:
+
+- erstellt einen Service mit dem Namen `nvr-ui`
+- verwendet den aktuellen Linux-Benutzer
+- setzt den Projektordner als `WorkingDirectory`
+- startet die App über `start.sh`
+- aktiviert automatischen Neustart
+- aktiviert den Service beim Systemstart
+- startet ihn direkt nach der Installation neu
+
+### Nützliche Befehle
+
+```bash
+sudo systemctl status nvr-ui
+journalctl -u nvr-ui -f
+```
+
+## Kiosk / Touchscreen-Nutzung
+
+Für den Kioskmodus enthält das Projekt:
+
+- `webserver_oeffnen.sh`
+- `webserver-kiosk.desktop`
+
+### `webserver_oeffnen.sh`
+
+Dieses Hilfsskript:
+
+- wartet, bis `http://127.0.0.1:9500` erreichbar ist
+- erkennt `chromium` oder `chromium-browser`
+- startet Chromium im Kioskmodus
+
+Verwendete Flags:
+
+- `--kiosk`
+- `--incognito`
+- `--no-first-run`
+- `--disable-infobars`
+- `--check-for-update-interval=31536000`
+
+### `.desktop`-Launcher
+
+Die enthaltene Desktop-Datei startet den Kiosk-Launcher automatisch.  
+Wahrscheinlich musst du den `Exec=`-Pfad an dein System anpassen.
+
+## Projektstruktur
+
+```text
+.
+├─ app/
+│  ├─ main.py
+│  ├─ routers/
+│  └─ services/
+├─ static/
+│  ├─ index.html
+│  ├─ clips/
+│  ├─ thumbs/
+│  ├─ playback_meta/
+│  └─ playback_logs/
+├─ Logo/
+│  └─ Logo.png
+├─ preview/
+├─ 1_install.sh
+├─ 2_install_systemd.sh
+├─ start.sh
+├─ webserver_oeffnen.sh
+├─ webserver-kiosk.desktop
+├─ cameras.py
+├─ settings.json
+└─ requirements.txt
+```
+
+## Laufzeitordner
+
+Der Wiedergabe-Workflow verwendet folgende Verzeichnisse:
+
+- `static/clips/` für fertige MP4-Clips
+- `static/thumbs/` für erzeugte Vorschaubilder
+- `static/playback_meta/` für interne Wiedergabe-Metadaten
+- `static/playback_logs/` für interne Wiedergabe-Logs
+- `search_log/<camera>/` für optionale Aufnahmesuch-Dumps
+
+## Konfiguration
+
+Die Hauptkonfiguration erfolgt über `settings.json` und `/api/config`.
+
+Typische Bereiche sind:
+
+- `cameras`
+- `camera_defaults`
+- `ffmpeg`
+- `go2rtc`
+- `ui`
+- `live`
+- `record_settings`
+
+### ffmpeg-Pfad
+
+Der ffmpeg-Pfad sollte absolut sein.
+
+```json
+{
+  "ffmpeg": {
+    "windows": "C:\\ffmpeg\\bin\\ffmpeg.exe",
+    "linux": "/usr/bin/ffmpeg"
+  }
+}
+```
+
+### go2rtc
+
+Die go2rtc-Konfiguration unterstützt:
+
+- `go2rtc.url`
+- oder `go2rtc.host` + `go2rtc.port`
+- optional `go2rtc.base_path`
+- optional `go2rtc.username`
+- optional `go2rtc.password`
+
+## Wiedergabe-Workflow
+
+Der aktuelle Wiedergabe-Ablauf ist dateibasiert und verwendet **kein** HLS.
+
+### Ablauf
+
+1. Die Aufnahmesuche liefert Treffer mit Start- und Endzeiten.
+2. Falls vorhanden, wird `playbackURI` intern unter einer `jobid` gespeichert.
+3. `/api/playback/start` lädt die Aufnahme vom NVR herunter.
+4. Die Rohdatei wird lokal gespeichert.
+5. `ffmpeg` remuxt sie zu einer echten MP4-Datei.
+6. Optional kann ein Vorschaubild erzeugt werden.
+7. Das Frontend erhält direkte URLs zur MP4-Datei und zum Thumbnail.
+
+### Vorteile
+
+- keine HLS-Komplexität
+- kein `.m3u8` / `.ts`-Handling
+- direkte MP4-Wiedergabe
+- einfaches Caching pro Job
+
+## Wichtige API-Endpunkte
+
+### Statisch / Root
+
+#### `GET /`
+
+Leitet weiter zu:
+
+```text
+/static/index.html
+```
+
+#### `GET /static/...`
+
+Liefert Frontend-Dateien aus.
+
+Von direkter öffentlicher Auslieferung ausgenommen:
+
+- `playback_meta/`
+- `playback_logs/`
+- `.txt`
+- `.log`
+- `.part`
+- `.bin`
+- `.tmp.mp4`
+- `.tmp.jpg`
+
+### Konfiguration
+
+#### `GET /api/config`
+
+Gibt die aktuelle Konfiguration mit bereinigten Secrets zurück.
+
+#### `PATCH /api/config`
+
+Aktualisiert Teile der Konfiguration und kann optional den go2rtc-Sync neu starten.
+
+### Sprache
+
+#### `GET /api/lang`
+
+Lädt verfügbare Sprachdateien.
+
+#### `GET /api/lang/available`
+
+Gibt verfügbare Sprachcodes zurück.
+
+### Aufnahmen
+
+#### `GET /api/records/search`
+
+Sucht Aufnahmen nach Kamera und Datums-/Zeitbereich.
+
+Typische Parameter:
+
+- `camera`
+- `date`
+- `start`
+- `end`
+- `maxResults`
+- `position`
+- `searchID`
+- `includeToken`
+
+#### `GET /api/records/days`
+
+Gibt die Tagesverteilung vorhandener Aufnahmen in einem Monat zurück.
+
+### Wiedergabe
+
+#### `POST /api/playback/start`
+
+Startet die Wiedergabe oder gibt eine gecachte Wiedergabe zurück.
+
+#### `POST /api/playback/stop/{jobid}`
+
+Entfernt temporäre Dateien für einen Job.
+
+#### `POST /api/playback/frame`
+
+Prüft, ob ein Vorschaubild existiert.
+
+#### `POST /api/playback/thumbnail`
+
+Erzeugt ein Vorschaubild.
+
+#### `POST /api/playback/stop_all`
+
+Entfernt temporäre Wiedergabedateien global.
+
+### Jobs / System
+
+#### `GET /api/jobs`
+
+Gibt bekannte Wiedergabe-Jobs zurück.
+
+#### `GET /api/system/stats`
+
+Gibt Systemstatistiken zurück.
+
+#### `POST /api/browser/close`
+
+Schließt Browser-Prozesse.
+
+## Live vs Wiedergabe
+
+### Live
+
+Für die Live-Ansicht sollte **direkt die Kamera-IP** verwendet werden.
+
+Typische RTSP-Pfade:
+
+- Mainstream: `.../Streaming/Channels/101`
+- Substream: `.../Streaming/Channels/102`
+
+### Wiedergabe / Suche
+
+Für folgende Funktionen sollte der **NVR / Recorder** verwendet werden:
+
+- Aufnahmesuche
+- Wiedergabe
+- recorderbasierte Kanal-Logik
+
+Ersetze recorderbasierte Wiedergabelogik nicht durch direkte Kamera-IPs, wenn dein Backend auf Hikvision-NVR-ISAPI-Aufnahmen basiert.
+
+## Hinweise zu direktem Hikvision-RTSP
+
+Für Hikvision-Setups mit internem PoE-Kameranetzwerk ist folgender Ansatz empfehlenswert:
+
+1. Kamerahinzufügungsmodus von **Plug-and-Play** auf **Manual** umstellen
+2. Kamera-Gateway korrekt setzen, z. B. `192.168.254.1`
+3. statische Route auf dem Linux- oder Windows-Host hinzufügen
+4. direkten Kamera-RTSP für Live verwenden
+5. Aufnahmen und Wiedergabe weiter über den Recorder laufen lassen
+
+### Beispiel für direkte RTSP-Streams
+
+```yaml
+streams:
+  cam1_main:
+    - rtsp://admin:password@192.168.254.2:554/Streaming/Channels/101
+  cam1_sub:
+    - rtsp://admin:password@192.168.254.2:554/Streaming/Channels/102
+```
+
+### Schnelltests
+
+```bash
+nc -vz -w 3 192.168.254.2 80
+nc -vz -w 3 192.168.254.2 554
+```
+
+```bash
+ffprobe -hide_banner -rtsp_transport tcp \
+  -i 'rtsp://admin:PASSWORT@192.168.254.2:554/Streaming/Channels/101'
+```
+
+## Hinweise zu Drittanbieter-Komponenten
+
+Für Drittanbieter-Binaries und Bibliotheken wie:
+
+- `ffmpeg`
+- `go2rtc`
+- `jQuery`
+- `Bootstrap`
+
+kann es sein, dass das Repository bewusst **nicht alle gebündelten Dateien** enthält.  
+Bitte verwende die bereitgestellten **Release-Dateien / das Release-Paket** oder ergänze die benötigten Komponenten lokal.
+
+Im Repository sinnvoll enthalten sind:
+
+- eigene Python-, HTML-, CSS- und JS-Dateien
+- eigene SVG-, PNG-, ICO- und Bilddateien
+- Konfigurationsbeispiele
+- ffmpeg-Befehlsbeispiele
+- go2rtc-Konfigurations-Snippets
+
+## Zielanwendungen
+
+Dieses Projekt eignet sich besonders für:
+
+- lokale Kameraüberwachung
+- Mini-PC-Touchscreen-Systeme
+- selbst gebaute NVR-Frontends
+- Ersatz für instabile Hersteller-Weboberflächen
+- hybride Umgebungen mit direkter Kamera-Live-Ansicht und recorderbasierter Wiedergabe
+
+## Autor
+
+**Jumbo125**
+
+## Lizenz
+
+Autor: **Andreas Rottmann**  
+Lizenz: **GNU AGPL-3.0**
