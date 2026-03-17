@@ -36,7 +36,7 @@
   "cfg.label_header": "Header",
   "cfg.label_color": "Color",
   "cfg.label_language": "Language",
-   "cfg.label_lreload": "Auto  Reload Browser (ms 0 = disabled)",
+   "cfg.label_lreload": "Auto  Reload Browser (sec 0 = disabled)",
 
   "cfg.section_cameras": "Cameras",
   "cfg.cameras_hint": "Username/password are not shown. Leave empty to keep.",

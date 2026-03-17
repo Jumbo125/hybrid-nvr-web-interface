@@ -6,7 +6,7 @@
  * Zweck:
  * - Liest cfg.ui.reload oder cfg.ui.Reload aus /api/config (über window.General_config)
  * - reload == 0  -> Auto Reload deaktiviert
- * - reload > 0   -> Auto Reload aktiv, Intervall in Millisekunden
+ * - reload > 0   -> Auto Reload aktiv, Intervall in Sekunden
  * - Schreibt Status + Timer in <div id="autoreload"></div>
  *   - "HH:MM:SS – Auto Reload disabled"
  *   - "HH:MM:SS – Autoreload in: HH:MM:SS"
@@ -36,7 +36,7 @@
   let reloadHandle = null;
 
   const pageStartTs = Date.now();
-  let reloadEveryMs = 0;
+  let reloadEverySec = 0;
   let nextReloadTs = 0;
 
   function pad2(n) {
@@ -102,9 +102,11 @@
   }
 
   function scheduleReload() {
-    if (!reloadEveryMs || reloadEveryMs <= 0) {
+    if (!reloadEverySec || reloadEverySec <= 0) {
       return;
     }
+
+    const reloadEveryMs = reloadEverySec * 1000;
 
     nextReloadTs = Date.now() + reloadEveryMs;
 
@@ -118,7 +120,7 @@
       const now = Date.now();
       const uptime = formatHMS(now - pageStartTs);
 
-      if (!reloadEveryMs || reloadEveryMs <= 0) {
+      if (!reloadEverySec || reloadEverySec <= 0) {
         setAutoReloadDiv(
           `${uptime} – ${HK.msg("autoreload.disabled", "Auto Reload disabled")}`
         );
@@ -137,9 +139,9 @@
   function applyConfig(cfg) {
     clearTimers();
 
-    reloadEveryMs = parseReloadValue(cfg);
+    reloadEverySec = parseReloadValue(cfg);
 
-    if (!reloadEveryMs || reloadEveryMs <= 0) {
+    if (!reloadEverySec || reloadEverySec <= 0) {
       nextReloadTs = 0;
       startTicker();
       return;

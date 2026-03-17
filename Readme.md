@@ -14,7 +14,13 @@
 
 <a id="english"></a>
 
-Lightweight hybrid Hikvision NVR web interface for live view, record search and playback using go2rtc, FastAPI, ffmpeg and jQuery.
+Lightweight hybrid Hikvision NVR web interface for live view, record search and playback using go2rtc, FastAPI, ffmpeg, jQuery and Server-Sent Events (SSE) for playback progress.
+
+## Support
+
+If this project helps you, feel free to buy me a coffee:
+
+[![Donate with PayPal ☕](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.me/andreasrottmann92)
 
 ## Preview
 
@@ -54,12 +60,13 @@ This project is a lightweight web-based camera and NVR interface for:
 - live view
 - record search
 - playback
+- live playback progress feedback via SSE
 - touch-friendly local operation
 
 It combines:
 
 - **go2rtc** for efficient live streaming
-- **FastAPI** for API, record search and playback logic
+- **FastAPI** for API, record search, playback job handling and SSE progress streaming
 - **ffmpeg** for remuxing and thumbnail generation
 - **Bootstrap + jQuery** for the frontend
 
@@ -95,6 +102,7 @@ This keeps the system modular, stable and lightweight.
 |---|---|
 | Live streaming | go2rtc |
 | Record search | FastAPI |
+| Playback job orchestration / SSE progress | FastAPI |
 | Playback download/remux | ffmpeg + FastAPI |
 | UI | Bootstrap + jQuery |
 
@@ -122,6 +130,8 @@ In practice, direct camera RTSP for live view is often more stable than going th
 - substream in gallery, mainstream in fullscreen/modal
 - record search by camera and time range
 - direct playback from search results
+- live playback progress via SSE
+- elapsed time and timeout display during playback preparation
 - thumbnail generation
 - dynamic grid layout
 - go2rtc sync from config
@@ -138,6 +148,8 @@ In practice, direct camera RTSP for live view is often more stable than going th
 - ffmpeg
 - Bootstrap
 - jQuery
+- Server-Sent Events (SSE)
+- Server-Sent Events (SSE)
 
 ## Quick Start
 
@@ -333,17 +345,32 @@ The go2rtc configuration supports:
 
 ## Playback Workflow
 
-The current playback flow is file-based and does **not** use HLS.
+The current playback flow is file-based, uses **no HLS**, and now reports playback preparation progress via **SSE**.
 
 ### Flow
 
 1. Record search returns matches with start and end times.
 2. If available, `playbackURI` is stored internally by `jobid`.
-3. `/api/playback/start` downloads the recording from the NVR.
-4. The raw file is stored locally.
-5. `ffmpeg` remuxes it to a real MP4.
-6. A thumbnail can optionally be generated.
-7. The frontend receives direct URLs to MP4 and thumbnail.
+3. `POST /api/playback/start` creates or resumes a playback preparation job and returns immediately.
+4. The frontend opens `GET /api/playback/events/{jobid}` as an SSE stream.
+5. FastAPI downloads the recording from the NVR in the background.
+6. Download progress is reported live as downloaded bytes, total bytes if known, percent if available, elapsed time and configured timeout.
+7. The raw file is stored locally.
+8. `ffmpeg` remuxes it to a real MP4.
+9. A thumbnail can optionally be generated from the local MP4.
+10. When the job reaches `ready`, the SSE stream sends the final `video_url` and optional `thumbnail_url`.
+11. The frontend then loads the finished MP4 directly into the `<video>` element.
+
+### Status Phases
+
+Typical playback phases are:
+
+- `queued`
+- `downloading`
+- `remuxing`
+- `ready`
+- `error`
+- `stopped`
 
 ### Advantages
 
@@ -351,6 +378,31 @@ The current playback flow is file-based and does **not** use HLS.
 - no `.m3u8` / `.ts` handling
 - direct MP4 playback
 - simple caching per job
+- visible progress during long downloads
+- elapsed time and timeout feedback in the UI
+
+## Playback Progress / SSE
+
+Playback preparation is no longer a single long blocking request from the UI perspective.
+
+### Frontend behavior
+
+- `POST /api/playback/start` starts the job and returns a `jobid`
+- `GET /api/playback/events/{jobid}` streams playback status via **Server-Sent Events**
+- the browser updates the UI with:
+  - current phase
+  - downloaded bytes
+  - total bytes if the NVR sends `Content-Length`
+  - percent if calculable
+  - elapsed time
+  - configured timeout
+- when the status becomes `ready`, the frontend loads the final MP4 URL
+
+### Notes
+
+- If the clip already exists locally, `/api/playback/start` may return a ready/cached response immediately.
+- If the NVR does not provide `Content-Length`, progress is still shown as downloaded bytes, but percentage may remain unknown.
+- If you are using a reverse proxy in front of FastAPI, make sure response buffering is disabled for the SSE endpoint so progress updates are delivered live.
 
 ## Main API Endpoints
 
@@ -424,7 +476,15 @@ Returns day distribution for available recordings in a month.
 
 #### `POST /api/playback/start`
 
-Starts or returns cached playback.
+Starts or resumes playback preparation and returns the current job state.
+
+#### `GET /api/playback/events/{jobid}`
+
+Streams playback preparation progress via SSE.
+
+#### `GET /api/playback/events/{jobid}`
+
+Streamt den Fortschritt der Wiedergabevorbereitung per SSE.
 
 #### `POST /api/playback/stop/{jobid}`
 
@@ -554,7 +614,14 @@ License: **GNU AGPL-3.0**
 
 <a id="deutsch"></a>
 
-Leichtgewichtige hybride Hikvision-NVR-Weboberfläche für Live-Ansicht, Aufnahmesuche und Wiedergabe mit go2rtc, FastAPI, ffmpeg und jQuery.
+Leichtgewichtige hybride Hikvision-NVR-Weboberfläche für Live-Ansicht, Aufnahmesuche und Wiedergabe mit go2rtc, FastAPI, ffmpeg, jQuery und Server-Sent Events (SSE) für Wiedergabe-Fortschritt.
+
+
+## Support
+
+Wenn dir das Projekt hilft und du mir einen Kaffee ausgeben willst:
+
+[![Donate with PayPal ☕](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.me/andreasrottmann92)
 
 ## Vorschau
 
@@ -594,12 +661,13 @@ Dieses Projekt ist eine leichtgewichtige webbasierte Kamera- und NVR-Oberfläche
 - Live-Ansicht
 - Aufnahmesuche
 - Wiedergabe
+- Live-Fortschrittsanzeige der Wiedergabevorbereitung per SSE
 - touchfreundliche lokale Bedienung
 
 Es kombiniert:
 
 - **go2rtc** für effizientes Live-Streaming
-- **FastAPI** für API, Aufnahmesuche und Wiedergabelogik
+- **FastAPI** für API, Aufnahmesuche, Wiedergabe-Jobsteuerung und SSE-Fortschrittsstream
 - **ffmpeg** für Remuxing und Thumbnail-Erstellung
 - **Bootstrap + jQuery** für das Frontend
 
@@ -635,6 +703,7 @@ Dadurch bleibt das System modular, stabil und leichtgewichtig.
 |---|---|
 | Live-Streaming | go2rtc |
 | Aufnahmesuche | FastAPI |
+| Wiedergabe-Jobsteuerung / SSE-Fortschritt | FastAPI |
 | Wiedergabe-Download/Remux | ffmpeg + FastAPI |
 | UI | Bootstrap + jQuery |
 
@@ -662,6 +731,8 @@ In der Praxis ist direkter Kamera-RTSP für die Live-Ansicht oft stabiler als de
 - Substream in der Galerie, Mainstream in Vollbild/Modal
 - Aufnahmesuche nach Kamera und Zeitraum
 - direkte Wiedergabe aus Suchergebnissen
+- Live-Fortschritt der Wiedergabevorbereitung per SSE
+- Anzeige von verstrichener Zeit und Timeout während der Bereitstellung
 - Thumbnail-Erzeugung
 - dynamisches Grid-Layout
 - go2rtc-Sync aus der Konfiguration
@@ -678,6 +749,7 @@ In der Praxis ist direkter Kamera-RTSP für die Live-Ansicht oft stabiler als de
 - ffmpeg
 - Bootstrap
 - jQuery
+- Server-Sent Events (SSE)
 
 ## Schnellstart
 
@@ -873,17 +945,32 @@ Die go2rtc-Konfiguration unterstützt:
 
 ## Wiedergabe-Workflow
 
-Der aktuelle Wiedergabe-Ablauf ist dateibasiert und verwendet **kein** HLS.
+Der aktuelle Wiedergabe-Ablauf ist dateibasiert, verwendet **kein** HLS und meldet den Fortschritt der Bereitstellung jetzt über **SSE**.
 
 ### Ablauf
 
 1. Die Aufnahmesuche liefert Treffer mit Start- und Endzeiten.
 2. Falls vorhanden, wird `playbackURI` intern unter einer `jobid` gespeichert.
-3. `/api/playback/start` lädt die Aufnahme vom NVR herunter.
-4. Die Rohdatei wird lokal gespeichert.
-5. `ffmpeg` remuxt sie zu einer echten MP4-Datei.
-6. Optional kann ein Vorschaubild erzeugt werden.
-7. Das Frontend erhält direkte URLs zur MP4-Datei und zum Thumbnail.
+3. `POST /api/playback/start` erstellt oder übernimmt einen Wiedergabe-Job und antwortet sofort.
+4. Das Frontend öffnet `GET /api/playback/events/{jobid}` als SSE-Stream.
+5. FastAPI lädt die Aufnahme im Hintergrund vom NVR herunter.
+6. Der Download-Fortschritt wird live gemeldet: geladene Bytes, Gesamtbytes falls bekannt, Prozent falls berechenbar, verstrichene Zeit und gesetztes Timeout.
+7. Die Rohdatei wird lokal gespeichert.
+8. `ffmpeg` remuxt sie zu einer echten MP4-Datei.
+9. Optional kann ein Vorschaubild aus der lokalen MP4 erzeugt werden.
+10. Sobald der Job `ready` erreicht, sendet der SSE-Stream die finale `video_url` und optional `thumbnail_url`.
+11. Erst dann lädt das Frontend die fertige MP4-Datei direkt in das `<video>`-Element.
+
+### Status-Phasen
+
+Typische Wiedergabe-Phasen sind:
+
+- `queued`
+- `downloading`
+- `remuxing`
+- `ready`
+- `error`
+- `stopped`
 
 ### Vorteile
 
@@ -891,6 +978,31 @@ Der aktuelle Wiedergabe-Ablauf ist dateibasiert und verwendet **kein** HLS.
 - kein `.m3u8` / `.ts`-Handling
 - direkte MP4-Wiedergabe
 - einfaches Caching pro Job
+- sichtbarer Fortschritt bei langen Downloads
+- Anzeige von verstrichener Zeit und Timeout im UI
+
+## Wiedergabe-Fortschritt / SSE
+
+Die Wiedergabevorbereitung ist aus Sicht des Frontends nicht mehr nur ein einzelner langer blockierender Request.
+
+### Verhalten im Frontend
+
+- `POST /api/playback/start` startet den Job und liefert eine `jobid`
+- `GET /api/playback/events/{jobid}` streamt den Status der Wiedergabevorbereitung per **Server-Sent Events**
+- der Browser aktualisiert die UI mit:
+  - aktueller Phase
+  - bereits geladenen Bytes
+  - Gesamtbytes, falls der NVR `Content-Length` mitsendet
+  - Prozent, falls berechenbar
+  - verstrichener Zeit
+  - konfiguriertem Timeout
+- sobald der Status `ready` ist, lädt das Frontend die finale MP4-URL
+
+### Hinweise
+
+- Falls der Clip lokal bereits existiert, kann `/api/playback/start` sofort einen fertigen/gecacheten Status zurückgeben.
+- Falls der NVR kein `Content-Length` liefert, wird der Fortschritt trotzdem über geladene Bytes angezeigt, aber ohne sicheren Prozentwert.
+- Wenn vor FastAPI ein Reverse Proxy verwendet wird, sollte Response-Buffering für den SSE-Endpunkt deaktiviert werden, damit Fortschrittsmeldungen live ankommen.
 
 ## Wichtige API-Endpunkte
 
@@ -964,7 +1076,15 @@ Gibt die Tagesverteilung vorhandener Aufnahmen in einem Monat zurück.
 
 #### `POST /api/playback/start`
 
-Startet die Wiedergabe oder gibt eine gecachte Wiedergabe zurück.
+Startet oder übernimmt die Wiedergabevorbereitung und gibt den aktuellen Job-Status zurück.
+
+#### `GET /api/playback/events/{jobid}`
+
+Streams playback preparation progress via SSE.
+
+#### `GET /api/playback/events/{jobid}`
+
+Streamt den Fortschritt der Wiedergabevorbereitung per SSE.
 
 #### `POST /api/playback/stop/{jobid}`
 

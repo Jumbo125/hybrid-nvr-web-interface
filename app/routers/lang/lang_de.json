@@ -35,7 +35,7 @@
   "cfg.label_header": "Header",
   "cfg.label_color": "Farbe",
   "cfg.label_language": "Sprache",
-  "cfg.label_lreload": "Automatisch Fenster neu laden (ms 0 = deaktiviert)",
+  "cfg.label_lreload": "Automatisch Fenster neu laden (Sek 0 = deaktiviert)",
 
 
   "cfg.section_cameras": "Kameras",
