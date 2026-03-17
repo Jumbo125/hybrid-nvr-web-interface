@@ -18,7 +18,7 @@ Lightweight hybrid Hikvision NVR web interface for live view, record search and 
 
 ## Support
 
-Donate with PayPal ☕
+Donate with PayPal ☕ 
 If this project helps you, feel free to buy me a coffee:
 
 [![Donate with PayPal ☕](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.me/andreasrottmann92)
