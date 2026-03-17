@@ -31,7 +31,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import requests
 from fastapi import HTTPException
@@ -58,6 +58,11 @@ _download_locks_guard = threading.Lock()
 
 _last_cleanup_ts = 0.0
 _cleanup_guard = threading.Lock()
+
+_progress_guard = threading.Lock()
+_playback_progress: Dict[str, Dict[str, Any]] = {}
+_active_workers: Dict[str, threading.Thread] = {}
+_PROGRESS_TTL_S = 6 * 60 * 60
 
 _rtsp_cred_re = re.compile(r"(rtsp://[^:\s/]+:)([^@\s]+)(@)", re.IGNORECASE)
 
@@ -150,6 +155,7 @@ def cleanup_orphans() -> None:
         expired = [k for k, (ts, _) in _playback_uri_cache.items() if (now - ts) > PLAYBACK_URI_CACHE_TTL_S]
         for k in expired:
             _playback_uri_cache.pop(k, None)
+    _purge_old_progress()
 
 
 def cleanup_old_files(force: bool = False) -> Dict[str, Any]:
@@ -438,6 +444,82 @@ def build_playback_rtsp(cam: Dict[str, Any], track: str, start: str, end: str) -
     return f"{base}?starttime={st}&endtime={et}"
 
 
+
+def _progress_defaults(jobid: str) -> Dict[str, Any]:
+    return {
+        "jobid": jobid,
+        "status": "idle",
+        "phase": "idle",
+        "message": "",
+        "video_url": None,
+        "thumbnail_url": None,
+        "duration_s": None,
+        "cached": False,
+        "downloaded_bytes": 0,
+        "total_bytes": None,
+        "percent": None,
+        "error": None,
+        "done": False,
+        "started_ts": None,
+        "elapsed_s": 0,
+        "timeout_ms": None,
+        "version": 0,
+        "updated_ts": time.time(),
+    }
+
+
+def _set_progress(jobid: str, **fields: Any) -> Dict[str, Any]:
+    with _progress_guard:
+        state = dict(_playback_progress.get(jobid) or _progress_defaults(jobid))
+        state.update(fields)
+        state["jobid"] = jobid
+        state["updated_ts"] = time.time()
+        started_ts = state.get("started_ts")
+        if started_ts not in (None, ""):
+            try:
+                state["elapsed_s"] = max(0, int(state["updated_ts"] - float(started_ts)))
+            except Exception:
+                state["elapsed_s"] = int(state.get("elapsed_s", 0) or 0)
+        else:
+            state["elapsed_s"] = int(state.get("elapsed_s", 0) or 0)
+        state["version"] = int(state.get("version", 0) or 0) + 1
+        _playback_progress[jobid] = state
+        return dict(state)
+
+
+def get_playback_progress(jobid: str) -> Dict[str, Any]:
+    with _progress_guard:
+        state = _playback_progress.get(jobid)
+        if state:
+            out = dict(state)
+            started_ts = out.get("started_ts")
+            if started_ts not in (None, ""):
+                try:
+                    out["elapsed_s"] = max(0, int(time.time() - float(started_ts)))
+                except Exception:
+                    out["elapsed_s"] = int(out.get("elapsed_s", 0) or 0)
+            return out
+    return _progress_defaults(jobid)
+
+
+def _purge_old_progress() -> None:
+    cutoff = time.time() - _PROGRESS_TTL_S
+    with _progress_guard:
+        stale = [jobid for jobid, state in _playback_progress.items() if float(state.get("updated_ts", 0.0) or 0.0) < cutoff]
+        for jobid in stale:
+            _playback_progress.pop(jobid, None)
+            worker = _active_workers.get(jobid)
+            if worker is None or not worker.is_alive():
+                _active_workers.pop(jobid, None)
+
+
+def _finish_worker(jobid: str) -> None:
+    with _progress_guard:
+        worker = _active_workers.get(jobid)
+        if worker is not None and not worker.is_alive():
+            _active_workers.pop(jobid, None)
+
+
 # --- internal helpers ------------------------------------------------------
 
 def _download_lock(jobid: str) -> threading.Lock:
@@ -509,6 +591,7 @@ def _download_clip_from_nvr(
     playback_uri: str,
     out_file: Path,
     deadline: Optional[float],
+    progress_cb: Optional[Callable[[int, Optional[int], Optional[float]], None]] = None,
 ) -> None:
     xml_body = (
         '<downloadRequest xmlns="http://www.isapi.org/ver20/XMLSchema">'
@@ -542,12 +625,45 @@ def _download_clip_from_nvr(
                 text = resp.text[:500] if resp.text else ""
                 raise HTTPException(status_code=502, detail=f"ISAPI download error {resp.status_code}: {text}")
 
+            total_bytes: Optional[int] = None
+            total_raw = resp.headers.get("Content-Length")
+            if total_raw:
+                try:
+                    parsed_total = int(total_raw)
+                    if parsed_total > 0:
+                        total_bytes = parsed_total
+                except Exception:
+                    total_bytes = None
+
+            downloaded_bytes = 0
+            last_progress_ts = 0.0
+
+            if progress_cb is not None:
+                progress_cb(0, total_bytes, 0.0 if total_bytes else None)
+
             with tmp_file.open("wb") as fh:
                 for chunk in resp.iter_content(chunk_size=1024 * 1024):
                     _remaining_seconds(deadline)
                     if not chunk:
                         continue
+
                     fh.write(chunk)
+                    downloaded_bytes += len(chunk)
+
+                    now = time.monotonic()
+                    if progress_cb is not None and (last_progress_ts == 0.0 or (now - last_progress_ts) >= 0.5):
+                        percent = None
+                        if total_bytes:
+                            try:
+                                percent = max(0.0, min(100.0, downloaded_bytes * 100.0 / total_bytes))
+                            except Exception:
+                                percent = None
+                        progress_cb(downloaded_bytes, total_bytes, percent)
+                        last_progress_ts = now
+
+            if progress_cb is not None:
+                percent = 100.0 if total_bytes else None
+                progress_cb(downloaded_bytes, total_bytes, percent)
 
         if not tmp_file.exists() or tmp_file.stat().st_size <= 0:
             raise HTTPException(status_code=502, detail="Downloaded clip is empty")
@@ -1158,6 +1274,297 @@ def start_playback(
             raise HTTPException(status_code=500, detail=f"Playback preparation failed: {e}")
 
 
+
+def _prepare_playback_worker(
+    *,
+    jobid: str,
+    camera: Optional[str],
+    cam: Dict[str, Any],
+    playback_uri: str,
+    video_path: Path,
+    raw_path: Path,
+    thumb_path: Path,
+    dur_s: int,
+    timeout_ms: int,
+) -> None:
+    try:
+        _append_log(jobid, f"prepare async start camera={camera} duration_s={dur_s} timeout_ms={timeout_ms}")
+        _append_log(jobid, f"playback_uri={_sanitize_for_log(playback_uri)}")
+
+        deadline = time.monotonic() + max(0.2, float(timeout_ms) / 1000.0)
+
+        lock = _download_lock(jobid)
+        with lock:
+            if video_path.exists() and video_path.stat().st_size > 0:
+                _set_progress(
+                    jobid,
+                    status="ready",
+                    phase="ready",
+                    message="Video bereit.",
+                    video_url=_video_url(jobid),
+                    thumbnail_url=_thumbnail_url(jobid) if thumb_path.exists() else None,
+                    duration_s=dur_s,
+                    cached=True,
+                    downloaded_bytes=video_path.stat().st_size,
+                    total_bytes=video_path.stat().st_size,
+                    percent=100.0,
+                    error=None,
+                    done=True,
+                )
+                return
+
+            try:
+                raw_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+            _set_progress(
+                jobid,
+                status="running",
+                phase="downloading",
+                message="Download läuft…",
+                duration_s=dur_s,
+                cached=False,
+                video_url=None,
+                thumbnail_url=_thumbnail_url(jobid) if thumb_path.exists() else None,
+                downloaded_bytes=0,
+                total_bytes=None,
+                percent=None,
+                error=None,
+                done=False,
+            )
+
+            def on_download_progress(downloaded: int, total: Optional[int], percent: Optional[float]) -> None:
+                _set_progress(
+                    jobid,
+                    status="running",
+                    phase="downloading",
+                    message="Download läuft…",
+                    duration_s=dur_s,
+                    cached=False,
+                    downloaded_bytes=downloaded,
+                    total_bytes=total,
+                    percent=percent,
+                    error=None,
+                    done=False,
+                )
+
+            _download_clip_from_nvr(
+                jobid=jobid,
+                cam=cam,
+                playback_uri=playback_uri,
+                out_file=raw_path,
+                deadline=deadline,
+                progress_cb=on_download_progress,
+            )
+
+            _set_progress(
+                jobid,
+                status="running",
+                phase="remuxing",
+                message="MP4 wird erzeugt…",
+                duration_s=dur_s,
+                cached=False,
+                downloaded_bytes=raw_path.stat().st_size if raw_path.exists() else 0,
+                total_bytes=raw_path.stat().st_size if raw_path.exists() else None,
+                percent=100.0,
+                error=None,
+                done=False,
+            )
+
+            _remux_to_mp4(
+                jobid=jobid,
+                input_path=raw_path,
+                output_path=video_path,
+                deadline=deadline,
+            )
+
+            try:
+                raw_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+            _set_progress(
+                jobid,
+                status="ready",
+                phase="ready",
+                message="Video bereit.",
+                video_url=_video_url(jobid),
+                thumbnail_url=_thumbnail_url(jobid) if thumb_path.exists() else None,
+                duration_s=dur_s,
+                cached=False,
+                downloaded_bytes=video_path.stat().st_size if video_path.exists() else 0,
+                total_bytes=video_path.stat().st_size if video_path.exists() else None,
+                percent=100.0 if video_path.exists() else None,
+                error=None,
+                done=True,
+            )
+
+    except HTTPException as exc:
+        _append_log(jobid, f"prepare async error status={exc.status_code} detail={exc.detail}")
+        _set_progress(
+            jobid,
+            status="error",
+            phase="error",
+            message=str(exc.detail),
+            error=str(exc.detail),
+            done=True,
+        )
+    except Exception as e:
+        _append_log(jobid, f"prepare async error {e}")
+        _set_progress(
+            jobid,
+            status="error",
+            phase="error",
+            message=f"Playback preparation failed: {e}",
+            error=f"Playback preparation failed: {e}",
+            done=True,
+        )
+    finally:
+        _finish_worker(jobid)
+
+
+def start_playback_async(
+    *,
+    jobid: Optional[str] = None,
+    camera: Optional[str] = None,
+    date: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    timeout_ms: int = 3000,
+    record_list_thumbnail: bool = True,
+    frame_from_ms: int = 1000,
+    width: int = 320,
+    height: int = 180,
+) -> Dict[str, Any]:
+    """
+    Startet die Video-Vorbereitung asynchron und liefert den Fortschritt über
+    get_playback_progress()/SSE. Die eigentliche MP4 wird im Hintergrund erzeugt.
+    """
+    del record_list_thumbnail, frame_from_ms, width, height
+
+    cleanup_orphans()
+    try:
+        cleanup_old_files(force=False)
+    except Exception:
+        pass
+    _require_init()
+
+    cam = _ensure_camera(str(camera or "")) if camera else None
+    resolved_jobid, cam2, _, start_n, end_n = _resolve_jobid_and_cam(
+        jobid=jobid,
+        camera=camera,
+        date=date,
+        start=start,
+        end=end,
+    )
+    jobid = resolved_jobid
+    cam = cam or cam2
+
+    if cam is None:
+        raise HTTPException(status_code=400, detail="camera is required when job metadata is missing")
+
+    dur_s = duration_seconds(start_n or "", end_n or "")
+    if dur_s <= 0:
+        dur_s = 1
+
+    video_path = _clip_path(jobid)
+    raw_path = _raw_clip_path(jobid)
+    thumb_path = _thumb_path(jobid)
+
+    if video_path.exists() and video_path.stat().st_size > 0:
+        return _set_progress(
+            jobid,
+            status="ready",
+            phase="ready",
+            message="Video bereit.",
+            video_url=_video_url(jobid),
+            thumbnail_url=_thumbnail_url(jobid) if thumb_path.exists() else None,
+            duration_s=dur_s,
+            cached=True,
+            downloaded_bytes=video_path.stat().st_size,
+            total_bytes=video_path.stat().st_size,
+            percent=100.0,
+            error=None,
+            started_ts=time.time(),
+            timeout_ms=timeout_ms,
+            done=True,
+        )
+
+    playback_uri = load_playback_uri(jobid)
+    if not playback_uri:
+        raise HTTPException(
+            status_code=404,
+            detail="playbackURI not found. Search the records again first."
+        )
+
+    with _progress_guard:
+        existing = _active_workers.get(jobid)
+        if existing is not None and existing.is_alive():
+            state = dict(_playback_progress.get(jobid) or _progress_defaults(jobid))
+            state.setdefault("jobid", jobid)
+            state.setdefault("duration_s", dur_s)
+            state.setdefault("message", "Video wird bereitgestellt…")
+            state.setdefault("timeout_ms", timeout_ms)
+            state.setdefault("started_ts", time.time())
+            state["status"] = state.get("status") or "running"
+            state["done"] = bool(state.get("done", False))
+            started_ts = state.get("started_ts")
+            if started_ts not in (None, ""):
+                try:
+                    state["elapsed_s"] = max(0, int(time.time() - float(started_ts)))
+                except Exception:
+                    pass
+            return state
+
+        state = dict(_playback_progress.get(jobid) or _progress_defaults(jobid))
+        state.update(
+            {
+                "jobid": jobid,
+                "status": "started",
+                "phase": "queued",
+                "message": "Video wird bereitgestellt…",
+                "video_url": None,
+                "thumbnail_url": _thumbnail_url(jobid) if thumb_path.exists() else None,
+                "duration_s": dur_s,
+                "cached": False,
+                "downloaded_bytes": 0,
+                "total_bytes": None,
+                "percent": None,
+                "error": None,
+                "done": False,
+                "started_ts": time.time(),
+                "elapsed_s": 0,
+                "timeout_ms": timeout_ms,
+                "updated_ts": time.time(),
+                "version": int(state.get("version", 0) or 0) + 1,
+            }
+        )
+        _playback_progress[jobid] = state
+
+        worker = threading.Thread(
+            target=_prepare_playback_worker,
+            kwargs={
+                "jobid": jobid,
+                "camera": camera,
+                "cam": cam,
+                "playback_uri": playback_uri,
+                "video_path": video_path,
+                "raw_path": raw_path,
+                "thumb_path": thumb_path,
+                "dur_s": dur_s,
+                "timeout_ms": timeout_ms,
+            },
+            name=f"playback-{jobid[:8]}",
+            daemon=True,
+        )
+        _active_workers[jobid] = worker
+        worker.start()
+
+        return dict(state)
+
+
+
 def get_frame_info(
     *,
     jobid: Optional[str] = None,
@@ -1201,6 +1608,7 @@ def stop_playback(jobid: str) -> Dict[str, Any]:
             except Exception:
                 pass
 
+    _set_progress(jobid, status="stopped", phase="stopped", message="Playback gestoppt.", done=True)
     return {"status": "noop", "jobid": jobid, "removed": removed}
 
 

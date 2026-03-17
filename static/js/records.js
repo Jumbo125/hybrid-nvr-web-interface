@@ -40,7 +40,10 @@
 
   HK.records.thumbAbortCtrl = null;
   HK.records.playbackAbortCtrl = null;
+  HK.records.playbackEventSource = null;
   HK.records.playbackBusy = false;
+  HK.records.playbackStateData = null;
+  HK.records.playbackStateTimer = null;
 
   HK.records.THUMB_PLACEHOLDER_SRC = "img/thumb_placeholder.webp";
   HK.records.THUMB_FAIL_SRC = "img/black.webp";
@@ -94,6 +97,170 @@
       try { HK.records.playbackAbortCtrl.abort(); } catch (e) {}
       HK.records.playbackAbortCtrl = null;
     }
+  };
+
+  HK.records.closePlaybackEvents = function () {
+    if (HK.records.playbackEventSource) {
+      try { HK.records.playbackEventSource.close(); } catch (e) {}
+      HK.records.playbackEventSource = null;
+    }
+  };
+
+
+  HK.records.clearPlaybackStateTimer = function () {
+    if (HK.records.playbackStateTimer) {
+      try { clearInterval(HK.records.playbackStateTimer); } catch (e) {}
+      HK.records.playbackStateTimer = null;
+    }
+  };
+
+  HK.records.formatTimeoutMs = function (timeoutMs) {
+    const ms = Math.max(0, Number(timeoutMs) || 0);
+    if (!ms) return "--";
+    return HK.records.formatDuration(Math.ceil(ms / 1000));
+  };
+
+  HK.records.refreshPlaybackStateFromData = function () {
+    const state = HK.records.playbackStateData;
+    if (!state) return;
+    HK.records.setPlaybackState(HK.records.buildPlaybackStateText(state));
+  };
+
+  HK.records.setPlaybackStateData = function (state) {
+    HK.records.playbackStateData = state ? { ...state } : null;
+    HK.records.clearPlaybackStateTimer();
+
+    if (!HK.records.playbackStateData) {
+      HK.records.setPlaybackState("");
+      return;
+    }
+
+    HK.records.refreshPlaybackStateFromData();
+
+    const phase = String(HK.records.playbackStateData.phase || HK.records.playbackStateData.status || "");
+    const done = !!HK.records.playbackStateData.done;
+    const hasStarted = !!HK.records.playbackStateData.started_ts;
+
+    if (!done && hasStarted && phase !== "ready" && phase !== "error" && phase !== "stopped") {
+      HK.records.playbackStateTimer = setInterval(function () {
+        HK.records.refreshPlaybackStateFromData();
+      }, 1000);
+    }
+  };
+
+  HK.records.formatBytes = function (bytes) {
+    const num = Number(bytes);
+    if (!isFinite(num) || num <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = num;
+    let idx = 0;
+    while (value >= 1024 && idx < units.length - 1) {
+      value /= 1024;
+      idx += 1;
+    }
+    const digits = idx === 0 ? 0 : (value >= 100 ? 0 : (value >= 10 ? 1 : 2));
+    return `${value.toFixed(digits)} ${units[idx]}`;
+  };
+
+  HK.records.buildPlaybackStateText = function (state) {
+    const phase = String(state && (state.phase || state.status) || "");
+    const message = String(state && state.message || "");
+
+    const startedTs = Number(state && state.started_ts || 0);
+    const timeoutMs = Number(state && state.timeout_ms || 0);
+    let elapsedSec = Number(state && state.elapsed_s || 0);
+    if ((!isFinite(elapsedSec) || elapsedSec < 0) && isFinite(startedTs) && startedTs > 0) {
+      elapsedSec = Math.max(0, Math.floor((Date.now() / 1000) - startedTs));
+    } else if (isFinite(startedTs) && startedTs > 0) {
+      elapsedSec = Math.max(elapsedSec, Math.floor((Date.now() / 1000) - startedTs));
+    } else {
+      elapsedSec = Math.max(0, Math.floor(elapsedSec || 0));
+    }
+
+    const extra = [];
+    if (elapsedSec > 0 || startedTs > 0) {
+      extra.push(HK.msg("records.playback_elapsed", "Zeit: {elapsed}", {
+        elapsed: HK.records.formatDuration(elapsedSec)
+      }));
+    }
+    if (timeoutMs > 0) {
+      extra.push(HK.msg("records.playback_timeout", "Timeout: {timeout}", {
+        timeout: HK.records.formatTimeoutMs(timeoutMs)
+      }));
+    }
+    const suffix = extra.length ? ` | ${extra.join(" | ")}` : "";
+
+    if (phase === "downloading") {
+      const downloaded = Number(state && state.downloaded_bytes || 0);
+      const total = Number(state && state.total_bytes || 0);
+      const percent = Number(state && state.percent);
+
+      if (isFinite(total) && total > 0) {
+        const pctTxt = isFinite(percent) ? percent.toFixed(1) : ((downloaded * 100) / total).toFixed(1);
+        return HK.msg(
+          "records.playback_downloading_known",
+          "Download läuft… {done} / {total} ({percent}%)",
+          {
+            done: HK.records.formatBytes(downloaded),
+            total: HK.records.formatBytes(total),
+            percent: pctTxt
+          }
+        ) + suffix;
+      }
+
+      return HK.msg(
+        "records.playback_downloading_unknown",
+        "Download läuft… {done}",
+        { done: HK.records.formatBytes(downloaded) }
+      ) + suffix;
+    }
+
+    if (phase === "remuxing") {
+      return HK.msg("records.playback_remuxing", "MP4 wird erzeugt…") + suffix;
+    }
+
+    if (message) return message + suffix;
+    return HK.msg("records.preparing_video", "Video wird bereitgestellt…") + suffix;
+  };
+
+  HK.records.loadPreparedVideo = function (videoUrl) {
+    const video = document.getElementById("recordVideo");
+    if (!video) {
+      HK.records.setRecordSpinner(false);
+      HK.records.setPlayButtonsDisabled(false);
+      HK.records.showRecordPlaybackAlert(
+        HK.msg("records.player_missing", "Video-Element nicht gefunden.")
+      );
+      HK.records.setPlaybackState(HK.msg("records.player_missing", "Video-Element nicht gefunden."));
+      return;
+    }
+
+    HK.records.setPlaybackState(HK.msg("records.video_ready", "Video bereit."));
+    HK.records.destroyRecordVideo();
+
+    const onReady = function () {
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("error", onError);
+      HK.records.setRecordSpinner(false);
+      HK.records.setPlayButtonsDisabled(false);
+      video.play().catch(function () {});
+    };
+
+    const onError = function () {
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("error", onError);
+      HK.records.setRecordSpinner(false);
+      HK.records.setPlayButtonsDisabled(false);
+      HK.records.showRecordPlaybackAlert(
+        HK.msg("records.video_load_failed", "MP4 konnte nicht geladen werden.")
+      );
+      HK.records.setPlaybackState(HK.msg("records.video_load_failed", "MP4 konnte nicht geladen werden."));
+    };
+
+    video.addEventListener("loadeddata", onReady, { once: true });
+    video.addEventListener("error", onError, { once: true });
+    video.src = videoUrl;
+    video.load();
   };
 
   HK.records.setPlayButtonsDisabled = function (disabled) {
@@ -354,9 +521,12 @@
 
   HK.records.stopRecordPlaybackAll = function () {
     HK.records.abortPlaybackRequest();
+    HK.records.closePlaybackEvents();
     HK.records.destroyRecordVideo();
     HK.records.setRecordSpinner(false);
     HK.records.showRecordPlaybackAlert("");
+    HK.records.clearPlaybackStateTimer();
+    HK.records.playbackStateData = null;
     HK.records.setPlaybackState("");
     HK.records.currentJobId = null;
     HK.records.setPlayButtonsDisabled(false);
@@ -380,7 +550,7 @@
   HK.records.startPlaybackFromRange = async function (camera, date, startIso, endIso, durationSec, jobid) {
     HK.records.showRecordPlaybackAlert("");
     HK.records.setRecordSpinner(true);
-    HK.records.setPlaybackState(HK.msg("records.preparing_video", "Video wird bereitgestellt…"));
+    HK.records.setPlaybackStateData({ phase: "queued", status: "started", message: HK.msg("records.preparing_video", "Video wird bereitgestellt…"), started_ts: Date.now() / 1000, elapsed_s: 0, timeout_ms: HK.records.getThumbnailTimeoutMs(), done: false });
     HK.records.setPlayButtonsDisabled(true);
 
     HK.records.currentJobId = jobid || "";
@@ -388,10 +558,12 @@
     $("#recordJobInfo").text(shortId ? HK.msg("records.job_info", "Job: {id}", { id: shortId }) : "");
 
     HK.records.abortPlaybackRequest();
+    HK.records.closePlaybackEvents();
     HK.records.playbackAbortCtrl = new AbortController();
 
     const timeoutMs = HK.records.getThumbnailTimeoutMs();
     const frameOffsetMs = HK.records.getFrameOffsetMs();
+    const startRequestTimeoutMs = Math.max(5000, Math.min(30000, timeoutMs + 2000));
 
     let resp;
     try {
@@ -411,7 +583,7 @@
             frame_from_ms: frameOffsetMs
           })
         },
-        timeoutMs,
+        startRequestTimeoutMs,
         HK.records.playbackAbortCtrl.signal
       );
     } catch (e) {
@@ -444,63 +616,79 @@
     }
 
     const data = await resp.json().catch(function () { return null; });
+    if (!data || !data.jobid) {
+      HK.records.setRecordSpinner(false);
+      HK.records.setPlayButtonsDisabled(false);
+      HK.records.showRecordPlaybackAlert(
+        HK.msg("records.playback_no_jobid", "Kein Job vom Server erhalten.")
+      );
+      HK.records.setPlaybackState(HK.msg("records.playback_no_jobid", "Kein Job vom Server erhalten."));
+      return;
+    }
+
+    HK.records.currentJobId = String(data.jobid || jobid || "");
+    const shortId2 = HK.records.currentJobId.slice(0, 8);
+    $("#recordJobInfo").text(shortId2 ? HK.msg("records.job_info", "Job: {id}", { id: shortId2 }) : "");
+
+    HK.records.setPlaybackStateData(data);
+
     const rawVideoUrl = data && (data.video_url || data.path || data.url || "");
-    const videoUrl = rawVideoUrl ? new URL(String(rawVideoUrl), window.location.origin).toString() : "";
-
-    if (!videoUrl) {
-      HK.records.setRecordSpinner(false);
-      HK.records.setPlayButtonsDisabled(false);
-      HK.records.showRecordPlaybackAlert(
-        HK.msg("records.playback_no_video_url", "Kein Video-Pfad vom Server erhalten.")
-      );
-      HK.records.setPlaybackState(HK.msg("records.playback_no_video_url", "Kein Video-Pfad vom Server erhalten."));
+    if (rawVideoUrl) {
+      const directVideoUrl = new URL(String(rawVideoUrl), window.location.origin).toString();
+      HK.records.loadPreparedVideo(directVideoUrl);
       return;
     }
 
-    if (data.jobid) {
-      HK.records.currentJobId = String(data.jobid);
-      const shortId2 = HK.records.currentJobId.slice(0, 8);
-      $("#recordJobInfo").text(shortId2 ? HK.msg("records.job_info", "Job: {id}", { id: shortId2 }) : "");
-    }
+    const eventUrl = new URL(`/api/playback/events/${encodeURIComponent(HK.records.currentJobId)}`, window.location.origin);
+    eventUrl.searchParams.set("cb", String(Date.now()));
 
-    HK.records.setPlaybackState(HK.msg("records.video_ready", "Video bereit."));
-    HK.records.destroyRecordVideo();
+    const es = new EventSource(eventUrl.toString());
+    HK.records.playbackEventSource = es;
 
-    const video = document.getElementById("recordVideo");
-    if (!video) {
-      HK.records.setRecordSpinner(false);
-      HK.records.setPlayButtonsDisabled(false);
-      HK.records.showRecordPlaybackAlert(
-        HK.msg("records.player_missing", "Video-Element nicht gefunden.")
+    es.onmessage = function (ev) {
+      let state = null;
+      try {
+        state = JSON.parse(ev.data);
+      } catch (e) {
+        return;
+      }
+
+      if (!state) return;
+      if (state.jobid && HK.records.currentJobId && String(state.jobid) !== String(HK.records.currentJobId)) {
+        return;
+      }
+
+      HK.records.setPlaybackStateData(state);
+
+      if (state.status === "ready" && state.video_url) {
+        HK.records.closePlaybackEvents();
+        const readyVideoUrl = new URL(String(state.video_url), window.location.origin).toString();
+        HK.records.loadPreparedVideo(readyVideoUrl);
+        return;
+      }
+
+      if (state.status === "error") {
+        HK.records.closePlaybackEvents();
+        HK.records.setRecordSpinner(false);
+        HK.records.setPlayButtonsDisabled(false);
+        const detail = String(state.error || state.message || HK.msg("records.playback_start_failed", "Playback Start fehlgeschlagen (Video konnte nicht bereitgestellt werden)."));
+        HK.records.showRecordPlaybackAlert(
+          HK.msg("records.playback_start_failed_detail", "Playback fehlgeschlagen: {detail}", { detail: detail })
+        );
+        HK.records.setPlaybackState(detail);
+      }
+    };
+
+    es.onerror = function () {
+      if (!HK.records.playbackEventSource || HK.records.playbackEventSource !== es) return;
+      if (HK.records.playbackStateData) {
+        HK.records.refreshPlaybackStateFromData();
+        return;
+      }
+      HK.records.setPlaybackState(
+        HK.msg("records.playback_stream_wait", "Verbindung zum Fortschritts-Stream wird gehalten…")
       );
-      HK.records.setPlaybackState(HK.msg("records.player_missing", "Video-Element nicht gefunden."));
-      return;
-    }
-
-  const onReady = function () {
-  video.removeEventListener("loadeddata", onReady);
-  video.removeEventListener("error", onError);
-  HK.records.setRecordSpinner(false);
-  HK.records.setPlayButtonsDisabled(false);
-  video.play().catch(function () {});
-};
-
-const onError = function () {
-  video.removeEventListener("loadeddata", onReady);
-  video.removeEventListener("error", onError);
-  HK.records.setRecordSpinner(false);
-  HK.records.setPlayButtonsDisabled(false);
-  HK.records.showRecordPlaybackAlert(
-    HK.msg("records.video_load_failed", "MP4 konnte nicht geladen werden.")
-  );
-  HK.records.setPlaybackState(HK.msg("records.video_load_failed", "MP4 konnte nicht geladen werden."));
-};
-
-video.addEventListener("loadeddata", onReady, { once: true });
-video.addEventListener("error", onError, { once: true });
-video.src = videoUrl;
-video.load();
-  
+    };
   };
 
   HK.records.onReady = function () {
@@ -611,7 +799,7 @@ video.load();
     $("#recordPlaybackSub").text(subTxt);
 
     HK.records.setRecordSpinner(true);
-    HK.records.setPlaybackState(HK.msg("records.preparing_video", "Video wird bereitgestellt…"));
+    HK.records.setPlaybackStateData({ phase: "queued", status: "started", message: HK.msg("records.preparing_video", "Video wird bereitgestellt…"), started_ts: Date.now() / 1000, elapsed_s: 0, timeout_ms: HK.records.getThumbnailTimeoutMs(), done: false });
     HK.records.setPlayButtonsDisabled(true);
 
     const el = document.getElementById("recordPlaybackModal");
