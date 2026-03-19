@@ -1,7 +1,12 @@
 <p align="center">
   <img src="Logo/Logo.png" alt="Hikvision Hybrid NVR Web Interface Logo" width="180">
 </p>
-
+![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi)
+![Frontend](https://img.shields.io/badge/Frontend-Web_UI-blue)
+![jQuery](https://img.shields.io/badge/jQuery-frontend-0769AD?logo=jquery)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-UI-7952B3?logo=bootstrap)
+![ffmpeg](https://img.shields.io/badge/ffmpeg-remuxing-007808?logo=ffmpeg)
 # hikvision-nvr-web-interface
 
 <p align="center">
