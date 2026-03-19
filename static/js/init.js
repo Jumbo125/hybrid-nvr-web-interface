@@ -24,13 +24,18 @@
    * Es wird bewusst mit jqXHR/Deferred gearbeitet, damit sowohl echte Promises
    * als auch jQuery-Promises funktionieren.
    */
-  HK.initOnReady = function () {
-    $(document).ready(function () {
-      const cfgPromise = HK.loadGeneralConfig
-        ? HK.loadGeneralConfig()
+HK.initOnReady = function () {
+  $(document).ready(function () {
+    const cfgPromise = HK.loadGeneralConfig
+      ? HK.loadGeneralConfig()
+      : $.Deferred().resolve().promise();
+
+    cfgPromise.always(function () {
+      const slidePromise = HK.loadSlideshowImages
+        ? HK.loadSlideshowImages()
         : $.Deferred().resolve().promise();
 
-      cfgPromise.always(function () {
+      slidePromise.always(function () {
         const selPromise = HK.initLanguageSelect
           ? HK.initLanguageSelect()
           : $.Deferred().resolve().promise();
@@ -48,7 +53,8 @@
         });
       });
     });
-  };
+  });
+};
 
   HK.initOnReady();
 

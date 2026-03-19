@@ -20,18 +20,28 @@
   /**
    * Öffnet das Lock-Overlay.
    */
-  HK.lock.open = function () {
-    $("#lockModal").removeClass("d-none");
-    $("body").addClass("lock-active");
-  };
+ HK.lock.open = function () {
+  $("#lockModal").removeClass("d-none");
+  $("body").addClass("lock-active");
+
+  if (HK.slideshow && typeof HK.slideshow.start === "function") {
+    HK.slideshow.start();
+  }
+};
+
+
 
   /**
    * Schließt das Lock-Overlay.
    */
-  HK.lock.close = function () {
-    $("#lockModal").addClass("d-none");
-    $("body").removeClass("lock-active");
-  };
+HK.lock.close = function () {
+  if (HK.slideshow && typeof HK.slideshow.stop === "function") {
+    HK.slideshow.stop();
+  }
+
+  $("#lockModal").addClass("d-none");
+  $("body").removeClass("lock-active");
+};
 
   /**
    * Initialisiert Event-Handler für Lock-Overlay.

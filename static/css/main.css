@@ -1,27 +1,32 @@
 .record-modal {
   position: fixed;
   top: 0;
-  right: -500px; /* Start außerhalb */
+  right: -500px;
+  /* Start außerhalb */
   width: 500px;
   height: 100%;
   background: #1e1e1e;
   z-index: 1050;
   overflow-y: auto;
   box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
-  transition: right 0.3s ease; /* <-- neu */
+  transition: right 0.3s ease;
+  /* <-- neu */
 }
 
 .record-modal.open {
-  right: 0; /* <-- neu */
+  right: 0;
+  /* <-- neu */
 }
 
 #openRecords {
   /* */
 }
+
 #searchlist {
   height: 65vh;
   overflow: scroll;
 }
+
 #openRecords i {
   display: flex;
 }
@@ -37,14 +42,14 @@
   margin-top: 1vh;
 }
 
-#liveGrid > div {
+#liveGrid>div {
   border-right: 1px solid white;
   border-bottom: 1px solid white;
   position: absolute;
   overflow: hidden;
 }
 
-#liveGrid > div > video {
+#liveGrid>div>video {
   z-index: 5;
   width: 98%;
 
@@ -58,7 +63,7 @@
   aspect-ratio: 4/3;
 }
 
-#liveGrid > div > video:hover {
+#liveGrid>div>video:hover {
   cursor: pointer;
 }
 
@@ -107,6 +112,7 @@ div#live_view_gallery_header {
   display: none;
   background: rgba(220, 53, 69, 0.85);
 }
+
 .live-tile.offline .live-status {
   display: block;
 }
@@ -129,6 +135,7 @@ div#live_view_gallery_header {
   top: 50%;
   z-index: 1;
 }
+
 .spinner-overlay.fullscreen {
   position: absolute;
   left: 50%;
@@ -145,7 +152,8 @@ div#live_view_gallery_header {
   height: 100%;
   overflow: hidden;
   position: relative;
-  touch-action: none; /* wichtig */
+  touch-action: none;
+  /* wichtig */
   overscroll-behavior: contain;
 }
 
@@ -198,9 +206,11 @@ div#live_view_gallery_header {
   left: 0;
   width: 100vw;
   height: 100vh;
-  inset: 0; /* zusätzlich: top/right/bottom/left = 0 */
+  inset: 0;
+  /* zusätzlich: top/right/bottom/left = 0 */
   background: #000;
-  z-index: 2000; /* über Bootstrap (Modal ~1050) */
+  z-index: 2000;
+  /* über Bootstrap (Modal ~1050) */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -223,6 +233,7 @@ body.lock-active {
   cursor: grab;
   user-select: none;
 }
+
 .cfg-sort-ghost {
   opacity: 0.35;
 }
@@ -231,29 +242,32 @@ body.lock-active {
   outline: 1px dashed rgba(255, 255, 255, 0.35);
 }
 
-#uiTitle, #uiPsutil {
+#uiTitle,
+#uiPsutil {
   color: white !important;
   margin-left: 10vw;
 }
 
-.form-control, .form-select{
-  color:white;
+.form-control,
+.form-select {
+  color: white;
 }
 
 div#live_view_gallery_header button {
   margin-left: 30px;
 }
 
-.btn-close{
+.btn-close {
   position: absolute;
   right: 2vw;
 }
 
-#cfgAlert{
-  position:absolute;
+#cfgAlert {
+  position: absolute;
   bottom: 5vh;
   width: 100%;
 }
+
 #liveGrid video {
   width: 100%;
   height: 100%;
@@ -273,15 +287,41 @@ div#live_view_gallery_header button {
 
 
 #configModal .modal-fullscreen {
-    width: 100%;
+  width: 100%;
 }
 
 #configModal {
-    width: 85vw;
-    height: 85vh;
-    overflow: hidden;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    position: absolute;
+  width: 85vw;
+  height: 85vh;
+  overflow: hidden;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  position: absolute;
+}
+
+.hk-slideshow-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  width: 75vw;
+  aspect-ratio: 3 / 2;
+  left: 12.5vw;
+}
+
+.hk-slideshow-layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.hk-slideshow-layer img {
+  width: auto;
+  height: 100vh;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }

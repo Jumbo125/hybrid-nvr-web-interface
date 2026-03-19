@@ -8,4 +8,4 @@ if [ ! -x "venv/bin/python" ]; then
     exit 1
 fi
 
-exec "$(pwd)/venv/bin/python" -m app.main --workers 1
+exec "$(pwd)/venv/bin/python" -m uvicorn app.main:app --host 0.0.0.0 --port 9500 --workers 1

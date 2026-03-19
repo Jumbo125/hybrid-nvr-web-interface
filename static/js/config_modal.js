@@ -370,11 +370,11 @@
               </div>
               <div class="d-flex gap-2">
                 ${uSet
-                  ? `<span class="badge bg-secondary" data-key="cfg.badge_user_set" data-fallback="${HK.escapeHtml(tBadgeUserSet)}">${HK.escapeHtml(tBadgeUserSet)}</span>`
-                  : ""}
+        ? `<span class="badge bg-secondary" data-key="cfg.badge_user_set" data-fallback="${HK.escapeHtml(tBadgeUserSet)}">${HK.escapeHtml(tBadgeUserSet)}</span>`
+        : ""}
                 ${pSet
-                  ? `<span class="badge bg-secondary" data-key="cfg.badge_pass_set" data-fallback="${HK.escapeHtml(tBadgePassSet)}">${HK.escapeHtml(tBadgePassSet)}</span>`
-                  : ""}
+        ? `<span class="badge bg-secondary" data-key="cfg.badge_pass_set" data-fallback="${HK.escapeHtml(tBadgePassSet)}">${HK.escapeHtml(tBadgePassSet)}</span>`
+        : ""}
               </div>
             </div>
           </button>
@@ -388,8 +388,8 @@
                 <label class="form-label" data-key="cfg.label_cam_id" data-fallback="${HK.escapeHtml(tLabelCamId)}">${HK.escapeHtml(tLabelCamId)}</label>
                 <input class="form-control cfg_cam_id" type="text" value="${HK.escapeHtml(camId)}" ${isNew ? "" : "readonly"}>
                 ${isNew
-                  ? ""
-                  : `<div class="small text-secondary" data-key="cfg.help_cam_id_fixed" data-fallback="${HK.escapeHtml(tHelpCamIdFixed)}">${HK.escapeHtml(tHelpCamIdFixed)}</div>`}
+        ? ""
+        : `<div class="small text-secondary" data-key="cfg.help_cam_id_fixed" data-fallback="${HK.escapeHtml(tHelpCamIdFixed)}">${HK.escapeHtml(tHelpCamIdFixed)}</div>`}
               </div>
 
               <div class="col-12 col-md-3">
@@ -528,6 +528,12 @@
     HK.setVal("#cfg_ui_header", (cfg.ui && (cfg.ui.header || cfg.ui.Header)) || "");
     HK.setVal("#cfg_ui_color", (cfg.ui && (cfg.ui.color || cfg.ui.Color)) || "#212529");
     HK.setVal("#cfg_ui_reload", (cfg.ui && (cfg.ui.reload || cfg.ui.Reload)) || 0);
+    HK.setSelectVal(
+      "#cfg_ui_lang",
+      (cfg.ui && cfg.ui.lang) || window.CurrentLang || HK.defaultLang || "de",
+      false,
+      false
+    );
 
     HK.setRadioByName(
       "cfg_live_stream_mode",
@@ -541,7 +547,7 @@
       (cfg.record_settings &&
         (cfg.record_settings.record_thumbnails_create_timeout_ms ||
           cfg.record_settings.record_thumbnails_create_timeout)) ||
-        3000
+      3000
     );
     HK.setVal(
       "#cfg_thumb_frame_second",
@@ -597,6 +603,37 @@
       HK.normalizeObjectFit(cfg.ui && cfg.ui.live_gallery_object_fit, "cover")
     );
 
+    HK.setChk("#cfg_slideshow_enabled", !!(cfg.slideshow && cfg.slideshow.enabled));
+
+    HK.setVal(
+      "#cfg_slideshow_image_duration",
+      (cfg.slideshow && cfg.slideshow.image_duration) || 10
+    );
+
+    HK.setVal(
+      "#cfg_slideshow_animation_duration",
+      (cfg.slideshow && cfg.slideshow.animation_duration) || 500
+    );
+
+    const slideshowAnimations = (cfg.slideshow && Array.isArray(cfg.slideshow.animations))
+      ? cfg.slideshow.animations
+      : ["right"];
+
+    HK.setChk("#cfg_slideshow_anim_right", slideshowAnimations.includes("right"));
+    HK.setChk("#cfg_slideshow_anim_top", slideshowAnimations.includes("top"));
+    HK.setChk("#cfg_slideshow_anim_bottom", slideshowAnimations.includes("bottom"));
+    HK.setChk("#cfg_slideshow_anim_left", slideshowAnimations.includes("left"));
+
+    HK.setChk(
+      "#cfg_slideshow_random_effect",
+      !!(cfg.slideshow && cfg.slideshow.random_effect)
+    );
+
+    HK.setVal(
+      "#cfg_slideshow_folder",
+      "slideshow/"
+    );
+
     if (typeof HK.applyLiveGalleryFitClass === "function") {
       HK.applyLiveGalleryFitClass(cfg.ui && cfg.ui.live_gallery_object_fit);
     }
@@ -614,6 +651,7 @@
       color: $("#cfg_ui_color").val(),
       reload: $("#cfg_ui_reload").val(),
       show_psutil: $("#cfg_ui_show_psutil").is(":checked"),
+      lang: $("#cfg_ui_lang").val(),
       live_gallery_object_fit: HK.normalizeObjectFit(
         $("#cfg_ui_live_gallery_object_fit").val(),
         "cover"
@@ -652,6 +690,22 @@
     const ffmpeg = {
       linux: String($("#cfg_ffmpeg_linux").val() || "").trim() || "/Schreibtisch/Hikvison/ffmpeg/linux/ffmpeg",
       windows: String($("#cfg_ffmpeg_windows").val() || "").trim() || "ffmpeg/win/ffmpeg.exe"
+    };
+
+    const slideshowAnimations = [];
+
+    if ($("#cfg_slideshow_anim_right").is(":checked")) slideshowAnimations.push("right");
+    if ($("#cfg_slideshow_anim_top").is(":checked")) slideshowAnimations.push("top");
+    if ($("#cfg_slideshow_anim_bottom").is(":checked")) slideshowAnimations.push("bottom");
+    if ($("#cfg_slideshow_anim_left").is(":checked")) slideshowAnimations.push("left");
+
+    const slideshow = {
+      enabled: $("#cfg_slideshow_enabled").is(":checked"),
+      image_duration: parseInt($("#cfg_slideshow_image_duration").val() || "10", 10),
+      animation_duration: parseInt($("#cfg_slideshow_animation_duration").val() || "500", 10),
+      animations: slideshowAnimations,
+      random_effect: $("#cfg_slideshow_random_effect").is(":checked"),
+      folder: "slideshow/"
     };
 
     const cameras = {};
@@ -744,7 +798,7 @@
       }
     });
 
-    return { ui, live, record_settings, limits, server, go2rtc, ffmpeg, cameras };
+    return { ui, live, record_settings, limits, server, go2rtc, ffmpeg, slideshow, cameras };
   };
 
   /**

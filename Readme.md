@@ -171,6 +171,7 @@ Depending on your setup, components such as:
 - `ffmpeg`
 - `jQuery`
 - `Bootstrap`
+- `GSAP`
 - other external runtime files
 
 are **not included directly in the repository** and are instead expected to come from the **release package/files** or be installed/provided locally.
@@ -578,6 +579,7 @@ For third-party binaries and libraries such as:
 - `go2rtc`
 - `jQuery`
 - `Bootstrap`
+- `GSAP`
 
 the repository may intentionally not include all bundled files.  
 Please use the provided **release files/package** or add the required components locally.
@@ -772,6 +774,7 @@ Je nach Setup sind Komponenten wie:
 - `ffmpeg`
 - `jQuery`
 - `Bootstrap`
+- `GSAP`
 - weitere externe Laufzeitdateien
 
 **nicht direkt im Repository enthalten**, sondern werden über die **Release-Dateien / das Release-Paket** bereitgestellt oder müssen lokal ergänzt werden.
@@ -1179,6 +1182,7 @@ Für Drittanbieter-Binaries und Bibliotheken wie:
 - `go2rtc`
 - `jQuery`
 - `Bootstrap`
+- `GSAP`
 
 kann es sein, dass das Repository bewusst **nicht alle gebündelten Dateien** enthält.  
 Bitte verwende die bereitgestellten **Release-Dateien / das Release-Paket** oder ergänze die benötigten Komponenten lokal.

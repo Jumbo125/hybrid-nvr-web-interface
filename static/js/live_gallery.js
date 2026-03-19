@@ -101,7 +101,7 @@
       streamType: streamType,
       isMuted: true,
       wantAudio: false,
-      tileEl,
+      tileEl: tileEl,
       timeoutMs: 20000,
       onPlaying: function () {
         const sp = tileEl.querySelector(".spinner-overlay");
@@ -134,13 +134,15 @@
    */
   HK.liveUi.initModalControls = function () {
     const modalVideo = document.getElementById("modalVideo");
-    const vol = document.getElementById("modalVolume");
-    const muteBtn = document.getElementById("modalMuteBtn");
+    const $vol = $("#modalVolume");
+    const $muteBtn = $("#modalMuteBtn");
 
-    if (vol && modalVideo) {
-      modalVideo.volume = parseFloat(vol.value || "0.5");
-      vol.addEventListener("input", function () {
-        modalVideo.volume = parseFloat(vol.value || "0.5");
+    if ($vol.length && modalVideo) {
+      modalVideo.volume = parseFloat($vol.val() || "0.5");
+
+      $vol.off("input.liveui").on("input.liveui", function () {
+        modalVideo.volume = parseFloat($(this).val() || "0.5");
+
         if (modalVideo.volume > 0 && modalVideo.muted) {
           modalVideo.muted = false;
           HK.liveUi.syncModalMuteUI(modalVideo);
@@ -148,8 +150,8 @@
       });
     }
 
-    if (muteBtn && modalVideo) {
-      muteBtn.addEventListener("click", function () {
+    if ($muteBtn.length && modalVideo) {
+      $muteBtn.off("click.liveui").on("click.liveui", function () {
         modalVideo.muted = !modalVideo.muted;
         HK.liveUi.syncModalMuteUI(modalVideo);
         modalVideo.play().catch(function () {});
@@ -164,121 +166,145 @@
    * - stoppt ggf. bestehenden Modal-PC
    * - bei auto: stoppt vorher den Tile-PC dieser Kamera und wartet kurz
    * - bei main/sub: Tile bleibt laufen, da kein Stream-Wechsel nötig ist
+   *
+   * Schutz gegen Race-Conditions:
+   * - _modalBusy verhindert parallele openLiveModal()-Aufrufe
+   * - _modalClosing blockt Klicks während des Schließens
+   * - _modalSeq bleibt als zusätzliche Absicherung erhalten
    */
   HK.liveUi.openLiveModal = async function (camKey) {
+    if (HK.liveUi._modalBusy || HK.liveUi._modalClosing) {
+      return;
+    }
+
+    if (Live.modalCamKey === camKey && Live.modalPC) {
+      return;
+    }
+
+    HK.liveUi._modalBusy = true;
+
     const modalEl = document.getElementById("liveModal");
     const modalVideo = document.getElementById("modalVideo");
     const titleEl = document.getElementById("liveModalTitle");
-    if (!modalEl || !modalVideo) return;
 
-    if (!Live.GO2RTC_BASE || typeof Live.startGo2rtcWebRTC !== "function") {
-      console.warn(
-        HK.msg(
-          "live.ui_not_ready",
-          "[UI] Live not ready yet (config not loaded?)"
-        )
-      );
+    if (!modalEl || !modalVideo) {
+      HK.liveUi._modalBusy = false;
       return;
     }
 
-    const cfg = HK.liveUi.getCfg();
-    const galleryType = HK.liveUi.getGalleryStreamType(cfg);
-    const fullscreenType = HK.liveUi.getFullscreenStreamType(cfg);
-    const needsSwitch = galleryType !== fullscreenType;
-    const streamSwitchDelayMs = Live.getStreamSwitchDelayMs(cfg);
-
-    HK.liveUi.setLiveModalSpinner(true);
-
-    // Sequenznummer gegen Race-Conditions (schnelles Klicken / Wechsel)
-    HK.liveUi._modalSeq = (HK.liveUi._modalSeq || 0) + 1;
-    const mySeq = HK.liveUi._modalSeq;
-
-    // Vorheriges Modal schließen
-    if (Live.modalPC) {
-      Live.stopPC(Live.modalPC, modalVideo);
-      Live.modalPC = null;
-      Live.modalCamKey = null;
-      Live.modalStreamType = null;
-    }
-
-    // Default: kein Tile-Restart notwendig
-    Live.modalNeedsTileRestart = false;
-    Live.modalStoppedTileCamKey = null;
-
-    // Nur wenn wirklich ein Stream-Wechsel nötig ist (auto): Tile stoppen
-    if (needsSwitch) {
-      const tileVideo = document.getElementById(`live_${camKey}`);
-      const entry =
-        Live.livePCs && typeof Live.livePCs.get === "function"
-          ? Live.livePCs.get(camKey)
-          : null;
-
-      if (entry && entry.pc) {
-        Live.stopPC(entry.pc, entry.videoEl || tileVideo);
-        Live.livePCs.delete(camKey);
-        Live.modalNeedsTileRestart = true;
-        Live.modalStoppedTileCamKey = camKey;
-
-        // Delay aus General_config, damit Recorder/go2rtc die alte Session freigeben kann
-        await Live.sleep(streamSwitchDelayMs);
+    try {
+      if (!Live.GO2RTC_BASE || typeof Live.startGo2rtcWebRTC !== "function") {
+        console.warn(
+          HK.msg(
+            "live.ui_not_ready",
+            "[UI] Live not ready yet (config not loaded?)"
+          )
+        );
+        return;
       }
-    }
 
-    Live.modalCamKey = camKey;
-    Live.modalStreamType = fullscreenType;
+      const cfg = HK.liveUi.getCfg();
+      const galleryType = HK.liveUi.getGalleryStreamType(cfg);
+      const fullscreenType = HK.liveUi.getFullscreenStreamType(cfg);
+      const needsSwitch = galleryType !== fullscreenType;
+      const streamSwitchDelayMs = Live.getStreamSwitchDelayMs(cfg);
 
-    // Titel setzen
-    if (titleEl) {
-      const titleTxt = HK.msg("live.modal_title", "Live: {cam}", { cam: camKey });
-      titleEl.textContent = titleTxt;
-      titleEl.setAttribute("data-key", "live.modal_title");
-      titleEl.setAttribute("data-fallback", titleTxt);
-    }
+      HK.liveUi.setLiveModalSpinner(true);
 
-    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    bsModal.show();
+      // Sequenznummer gegen Race-Conditions (zusätzliche Absicherung)
+      HK.liveUi._modalSeq = (HK.liveUi._modalSeq || 0) + 1;
+      const mySeq = HK.liveUi._modalSeq;
 
-    const streamName = Live.getStreamNameForCam(camKey, fullscreenType);
-    Live.applyVideoDebugAttrs(modalVideo, camKey, cfg, "fullscreen");
+      // Vorheriges Modal schließen
+      if (Live.modalPC) {
+        Live.stopPC(Live.modalPC, modalVideo);
+        Live.modalPC = null;
+        Live.modalCamKey = null;
+        Live.modalStreamType = null;
+      }
 
-    if (Live.DEBUG) {
-      console.log("[UI] openLiveModal", {
-        camKey: camKey,
-        galleryType: galleryType,
-        fullscreenType: fullscreenType,
-        needsSwitch: needsSwitch,
-        streamName: streamName,
-        streamSwitchDelayMs: streamSwitchDelayMs
+      // Default: kein Tile-Restart notwendig
+      Live.modalNeedsTileRestart = false;
+      Live.modalStoppedTileCamKey = null;
+
+      // Nur wenn wirklich ein Stream-Wechsel nötig ist (auto): Tile stoppen
+      if (needsSwitch) {
+        const tileVideo = document.getElementById(`live_${camKey}`);
+        const entry =
+          Live.livePCs && typeof Live.livePCs.get === "function"
+            ? Live.livePCs.get(camKey)
+            : null;
+
+        if (entry && entry.pc) {
+          Live.stopPC(entry.pc, entry.videoEl || tileVideo);
+          Live.livePCs.delete(camKey);
+          Live.modalNeedsTileRestart = true;
+          Live.modalStoppedTileCamKey = camKey;
+
+          // Delay aus General_config, damit Recorder/go2rtc die alte Session freigeben kann
+          await Live.sleep(streamSwitchDelayMs);
+        }
+      }
+
+      Live.modalCamKey = camKey;
+      Live.modalStreamType = fullscreenType;
+
+      // Titel setzen
+      if (titleEl) {
+        const titleTxt = HK.msg("live.modal_title", "Live: {cam}", { cam: camKey });
+        titleEl.textContent = titleTxt;
+        titleEl.setAttribute("data-key", "live.modal_title");
+        titleEl.setAttribute("data-fallback", titleTxt);
+      }
+
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+      const streamName = Live.getStreamNameForCam(camKey, fullscreenType);
+      Live.applyVideoDebugAttrs(modalVideo, camKey, cfg, "fullscreen");
+
+      if (Live.DEBUG) {
+        console.log("[UI] openLiveModal", {
+          camKey: camKey,
+          galleryType: galleryType,
+          fullscreenType: fullscreenType,
+          needsSwitch: needsSwitch,
+          streamName: streamName,
+          streamSwitchDelayMs: streamSwitchDelayMs
+        });
+      }
+
+      modalVideo.muted = false;
+      modalVideo.playsInline = true;
+      modalVideo.autoplay = true;
+
+      const pc = await Live.startGo2rtcWebRTC(streamName, modalVideo, {
+        streamType: fullscreenType,
+        isMuted: false,
+        wantAudio: true,
+        timeoutMs: 25000,
+        onPlaying: function () {
+          HK.liveUi.setLiveModalSpinner(false);
+          HK.liveUi.syncModalMuteUI(modalVideo);
+        }
       });
-    }
 
-    modalVideo.muted = false;
-    modalVideo.playsInline = true;
-    modalVideo.autoplay = true;
-
-    const pc = await Live.startGo2rtcWebRTC(streamName, modalVideo, {
-      streamType: fullscreenType,
-      isMuted: false,
-      wantAudio: true,
-      timeoutMs: 25000,
-      onPlaying: function () {
-        HK.liveUi.setLiveModalSpinner(false);
-        HK.liveUi.syncModalMuteUI(modalVideo);
+      // Wenn inzwischen ein anderer Modal-Start getriggert wurde, diesen PC sofort wieder schließen
+      if (mySeq !== HK.liveUi._modalSeq) {
+        if (pc) Live.stopPC(pc, modalVideo);
+        return;
       }
-    });
 
-    // Wenn inzwischen ein anderer Modal-Start getriggert wurde, diesen PC sofort wieder schließen
-    if (mySeq !== HK.liveUi._modalSeq) {
-      if (pc) Live.stopPC(pc, modalVideo);
-      return;
+      Live.modalPC = pc;
+
+      modalVideo.play().catch(function () {});
+      HK.liveUi.syncModalMuteUI(modalVideo);
+
+      if (!Live.modalPC) {
+        HK.liveUi.setLiveModalSpinner(false);
+      }
+    } finally {
+      HK.liveUi._modalBusy = false;
     }
-
-    Live.modalPC = pc;
-
-    modalVideo.play().catch(function () {});
-    HK.liveUi.syncModalMuteUI(modalVideo);
-
-    if (!Live.modalPC) HK.liveUi.setLiveModalSpinner(false);
   };
 
   /**
@@ -376,11 +402,30 @@
       `
       );
 
-      const tileEl = grid.querySelector(`.live-tile[data-cam="${camKey}"]`);
+      const $tileEl = $(grid).find(`.live-tile[data-cam="${camKey}"]`);
 
-      if (tileEl) {
-        tileEl.addEventListener("click", function () {
-          HK.liveUi.openLiveModal(camKey);
+      if ($tileEl.length) {
+        $tileEl.off("click.liveui").on("click.liveui", function () {
+          const now = Date.now();
+
+          // Mehrfachklick / Doppelklick kurz hintereinander ignorieren
+          if (
+            now - (HK.liveUi._lastModalClickTs || 0) <
+            (HK.liveUi._modalClickCooldownMs || 400)
+          ) {
+            return;
+          }
+
+          // Während Öffnen/Schließen keine neuen Opens zulassen
+          if (HK.liveUi._modalBusy || HK.liveUi._modalClosing) {
+            return;
+          }
+
+          HK.liveUi._lastModalClickTs = now;
+
+          HK.liveUi.openLiveModal(camKey).catch(function (err) {
+            console.error("[UI] openLiveModal failed:", err);
+          });
         });
       }
 
@@ -402,20 +447,33 @@
    * Initialisiert Live UI:
    * - Modal Controls
    * - Reagiert auf Config-Loaded Event und baut Grid
-   * - Modal Events: hidden => Cleanup, shown => Icon Sync
-   * - beforeunload => Stop aller PCs
+   * - Modal Events: hide => Sofort-Stop, hidden => Cleanup, shown => Icon Sync
+   * - beforeunload/pagehide/visibilitychange => Stop aller PCs
    */
   HK.liveUi.init = function () {
+    // Klick-/Modal-Schutz
+    HK.liveUi._modalBusy = false;
+    HK.liveUi._modalClosing = false;
+    HK.liveUi._lastModalClickTs = 0;
+    HK.liveUi._modalClickCooldownMs = 400;
+    HK.liveUi._modalSeq = 0;
+
     HK.liveUi.initModalControls();
     HK.liveUi.setLiveModalSpinner(true);
 
     $(document).on("generalConfigLoaded", async function (_, cfg) {
       await HK.liveUi.loadLiveGridFromCfg(cfg);
 
-      const modalEl = document.getElementById("liveModal");
-      if (modalEl) {
+      const $modalEl = $("#liveModal");
+      if ($modalEl.length) {
+        $modalEl.off("hide.bs.modal.liveui");
+        $modalEl.off("hidden.bs.modal.liveui");
+        $modalEl.off("shown.bs.modal.liveui");
+
         // Sofort beim Start des Schließens stoppen (nicht erst nach Animation)
-        modalEl.addEventListener("hide.bs.modal", function () {
+        $modalEl.on("hide.bs.modal.liveui", function () {
+          HK.liveUi._modalClosing = true;
+
           const modalVideo = document.getElementById("modalVideo");
           if (Live.modalPC) {
             Live.stopPC(Live.modalPC, modalVideo);
@@ -423,31 +481,31 @@
           }
         });
 
-        modalEl.addEventListener("hidden.bs.modal", function () {
-          HK.liveUi.closeLiveModalCleanup().catch(function () {});
+        $modalEl.on("hidden.bs.modal.liveui", function () {
+          HK.liveUi.closeLiveModalCleanup()
+            .catch(function () {})
+            .finally(function () {
+              HK.liveUi._modalClosing = false;
+              HK.liveUi._modalBusy = false;
+            });
         });
-        modalEl.addEventListener("shown.bs.modal", function () {
+
+        $modalEl.on("shown.bs.modal.liveui", function () {
           HK.liveUi.syncModalMuteUI(document.getElementById("modalVideo"));
         });
       }
     });
 
-    window.addEventListener("beforeunload", function () {
-      const modalVideo = document.getElementById("modalVideo");
-      if (Live.modalPC) Live.stopPC(Live.modalPC, modalVideo);
-      if (typeof Live.stopAllLivePCs === "function") Live.stopAllLivePCs();
-    });
-
-    // zuverlässiger als beforeunload (Mobile + BFCache)
-    window.addEventListener("pagehide", function () {
+    $(window).on("beforeunload.liveui pagehide.liveui", function () {
       const modalVideo = document.getElementById("modalVideo");
       if (Live.modalPC) Live.stopPC(Live.modalPC, modalVideo);
       if (typeof Live.stopAllLivePCs === "function") Live.stopAllLivePCs();
     });
 
     // optional: wenn Tab in Hintergrund geht, lieber hart stoppen (verhindert "hängende" Sessions)
-    document.addEventListener("visibilitychange", function () {
+    $(document).on("visibilitychange.liveui", function () {
       if (document.visibilityState !== "hidden") return;
+
       const modalVideo = document.getElementById("modalVideo");
       if (Live.modalPC) Live.stopPC(Live.modalPC, modalVideo);
       if (typeof Live.stopAllLivePCs === "function") Live.stopAllLivePCs();

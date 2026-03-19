@@ -59,6 +59,9 @@ from app.routers.jobs import router as jobs_router
 from app.routers.config import router as config_router
 from app.routers.lang import router as lang_router
 from app.services import playback as pb
+from app.routers.slideshow import router as slideshow_router
+
+
 
 setup_logging()
 logger = get_logger()
@@ -191,6 +194,7 @@ app.include_router(playback_router)
 app.include_router(jobs_router)
 app.include_router(config_router)
 app.include_router(lang_router)
+app.include_router(slideshow_router)
 
 
 if __name__ == "__main__":
