@@ -48,6 +48,7 @@ HK.lock.close = function () {
    */
   HK.lock.init = function () {
     const $lock = $("#lockModal");
+    const $slideshow =  $(".hk-slideshow-container");
     if (!$lock.length) return;
 
     // Optional: i18n Marker setzen (nur Vorbereitung; Text ist typischerweise im HTML)
@@ -63,8 +64,14 @@ HK.lock.close = function () {
 
     // Klick auf den Hintergrund (Modal selbst) schließt
     $lock.on("click", function (e) {
-      if (e.target === this) HK.lock.close();
+     HK.lock.close();
     });
+
+    // Klick auf die Slideshow
+   $slideshow.on("click", function (e) {
+    HK.lock.close();
+  
+});
 
     // ESC schließt, wenn sichtbar
     $(document).on("keydown", function (e) {

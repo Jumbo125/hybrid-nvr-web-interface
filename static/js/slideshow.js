@@ -352,14 +352,45 @@
      * @param {jQuery} $layer
      * @param {string|null} src
      */
+       /**
+     * Setzt das Bild eines Layers.
+     *
+     * Zusätzlich werden automatisch Format-Klassen gesetzt:
+     * - portrait
+     * - landscape
+     * - square
+     *
+     * @param {jQuery} $layer
+     * @param {string|null} src
+     */
     SS.setImage = function ($layer, src) {
       const $img = $layer.find("img");
       if (!$img.length) return;
 
-      if (src) {
-        $img.attr("src", src);
-      } else {
+      $img.off(".hkssOrientation");
+      $img.removeClass("portrait landscape square");
+
+      if (!src) {
         $img.removeAttr("src");
+        return;
+      }
+
+      function applyOrientation() {
+        SS.applyImageOrientationClass($img);
+      }
+
+      $img.on("load.hkssOrientation", function () {
+        applyOrientation();
+      });
+
+      $img.on("error.hkssOrientation", function () {
+        $img.removeClass("portrait landscape square");
+      });
+
+      $img.attr("src", src);
+
+      if ($img[0].complete && $img[0].naturalWidth) {
+        applyOrientation();
       }
     };
 
@@ -734,6 +765,36 @@
       }
 
       $(document).trigger("slideshowStopped");
+    };
+
+     /**
+     * Setzt je nach echtem Bildformat eine CSS-Klasse auf das <img>.
+     *
+     * Klassen:
+     * - portrait
+     * - landscape
+     * - square
+     *
+     * @param {jQuery} $img
+     */
+    SS.applyImageOrientationClass = function ($img) {
+      const el = $img && $img[0];
+      if (!el) return;
+
+      $img.removeClass("portrait landscape square");
+
+      const w = el.naturalWidth || 0;
+      const h = el.naturalHeight || 0;
+
+      if (!w || !h) return;
+
+      if (h > w) {
+        $img.addClass("portrait");
+      } else if (w > h) {
+        $img.addClass("landscape");
+      } else {
+        $img.addClass("square");
+      }
     };
 
   })(HK.slideshow);

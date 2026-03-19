@@ -306,7 +306,6 @@ div#live_view_gallery_header button {
   overflow: hidden;
   z-index: 0;
   width: 75vw;
-  aspect-ratio: 3 / 2;
   left: 12.5vw;
 }
 
@@ -324,4 +323,14 @@ div#live_view_gallery_header button {
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  margin: 0 auto;
+}
+
+.hk-slideshow-layer img.landscape {
+   aspect-ratio: 3 / 2;
+}
+
+
+.hk-slideshow-layer img.portrait {
+  aspect-ratio: 2 / 3; 
 }
