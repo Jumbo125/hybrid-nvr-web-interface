@@ -91,7 +91,9 @@
       token: 0,
       preloaded: {},
       isAnimating: false,
-      timeline: null
+      timeline: null,
+      effectBag: [],
+      lastEffect: null
     };
 
     /**
@@ -123,6 +125,112 @@
     SS.getSlideshowConfig = function () {
       const cfg = SS.getConfig();
       return cfg.slideshow || {};
+    };
+
+    /**
+     * Prüft verschiedene Truthy-Formate aus der Config.
+     *
+     * @param {*} value
+     * @returns {boolean}
+     */
+    SS.isEnabledFlag = function (value) {
+      return (
+        value === true ||
+        value === 1 ||
+        value === "1" ||
+        String(value).toLowerCase() === "true"
+      );
+    };
+
+    /**
+     * Prüft, ob Bild-Reihenfolge zufällig gemischt werden soll.
+     *
+     * Unterstützt explizit:
+     * - image_random: true
+     * - image_random: 1
+     * - image_random: "true"
+     *
+     * @returns {boolean}
+     */
+    SS.isImageRandomEnabled = function () {
+      const slideshow = SS.getSlideshowConfig();
+      return SS.isEnabledFlag(slideshow.image_random);
+    };
+
+    /**
+     * Mischt ein Array mit Fisher-Yates.
+     *
+     * Optional kann verhindert werden, dass das erste Element
+     * direkt identisch mit dem vorherigen letzten Element ist.
+     *
+     * @param {Array} list
+     * @param {*=} avoidFirstValue
+     * @returns {Array}
+     */
+    SS.shuffleArray = function (list, avoidFirstValue) {
+      const shuffled = Array.isArray(list) ? list.slice() : [];
+
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = shuffled[i];
+        shuffled[i] = shuffled[j];
+        shuffled[j] = tmp;
+      }
+
+      if (
+        shuffled.length > 1 &&
+        typeof avoidFirstValue !== "undefined" &&
+        shuffled[0] === avoidFirstValue
+      ) {
+        const swapIndex = shuffled.findIndex(function (item, idx) {
+          return idx > 0 && item !== avoidFirstValue;
+        });
+
+        if (swapIndex > 0) {
+          const tmp = shuffled[0];
+          shuffled[0] = shuffled[swapIndex];
+          shuffled[swapIndex] = tmp;
+        }
+      }
+
+      return shuffled;
+    };
+
+    /**
+     * Bereitet die Bildliste für den Start vor.
+     *
+     * Bei image_random=true wird die Start-Reihenfolge gemischt.
+     *
+     * @param {string[]} images
+     * @returns {string[]}
+     */
+    SS.prepareImagesForStart = function (images) {
+      if (!SS.isImageRandomEnabled()) {
+        return images;
+      }
+
+      return SS.shuffleArray(images);
+    };
+
+    /**
+     * Mischt nach einem kompletten Durchlauf die nächste Bildrunde neu.
+     *
+     * Das aktuell sichtbare Bild bleibt an Position 0 erhalten,
+     * damit kein Sprung entsteht. Alle folgenden Bilder werden neu gemischt.
+     *
+     * @param {string} currentSrc
+     */
+    SS.refreshImageOrderAfterCycle = function (currentSrc) {
+      if (!SS.isImageRandomEnabled()) return;
+      if (SS.state.images.length <= 1) return;
+      if (SS.state.index !== SS.state.images.length - 1) return;
+
+      const remaining = SS.state.images.filter(function (_src, idx) {
+        return idx !== SS.state.index;
+      });
+
+      SS.state.images = [currentSrc].concat(SS.shuffleArray(remaining, currentSrc));
+      SS.state.index = 0;
     };
 
     /**
@@ -287,12 +395,7 @@
           if (!allowed.includes(key)) return false;
 
           const val = raw[key];
-          return (
-            val === true ||
-            val === 1 ||
-            val === "1" ||
-            String(val).toLowerCase() === "true"
-          );
+          return SS.isEnabledFlag(val);
         });
 
         return filtered.length ? filtered : ["right"];
@@ -302,10 +405,22 @@
     };
 
     /**
+     * Füllt den Effekt-Pool für random_effect neu auf.
+     *
+     * Dabei wird jeder aktivierte Effekt genau einmal pro Runde verwendet.
+     * Zusätzlich wird nach Möglichkeit verhindert, dass die neue Runde mit
+     * demselben Effekt endet, mit dem die vorige Runde aufgehört hat.
+     */
+    SS.refillEffectBag = function () {
+      const effects = SS.getEffects();
+      SS.state.effectBag = SS.shuffleArray(effects, SS.state.lastEffect);
+    };
+
+    /**
      * Wählt den nächsten Effekt.
      *
      * random_effect = true:
-     *   zufälliger Effekt aus den aktivierten Effekten
+     *   echter Shuffle pro Effekt-Runde ohne unnötige direkte Wiederholungen
      *
      * random_effect = false:
      *   zyklische Rotation
@@ -316,12 +431,19 @@
       const slideshow = SS.getSlideshowConfig();
       const effects = SS.getEffects();
 
-      if (slideshow.random_effect) {
-        return effects[Math.floor(Math.random() * effects.length)];
+      if (SS.isEnabledFlag(slideshow.random_effect)) {
+        if (!SS.state.effectBag.length) {
+          SS.refillEffectBag();
+        }
+
+        const effect = SS.state.effectBag.shift() || effects[0] || "right";
+        SS.state.lastEffect = effect;
+        return effect;
       }
 
       const effect = effects[SS.state.effectIndex % effects.length];
       SS.state.effectIndex += 1;
+      SS.state.lastEffect = effect;
       return effect;
     };
 
@@ -648,6 +770,7 @@
             }
 
             SS.state.index = nextIndex;
+            SS.refreshImageOrderAfterCycle(nextSrc);
             SS.state.isAnimating = false;
 
             SS.setImage(layers.$current, nextSrc);
@@ -679,6 +802,7 @@
       }
 
       let images = SS.getImagesArray();
+      images = SS.prepareImagesForStart(images);
 
       if (!images.length && typeof HK.loadSlideshowImages === "function") {
         return HK.loadSlideshowImages().done(function () {
@@ -703,6 +827,8 @@
       SS.state.effectIndex = 0;
       SS.state.images = images;
       SS.state.isAnimating = false;
+      SS.state.effectBag = [];
+      SS.state.lastEffect = null;
 
       SS.preloadImage(images[0]).always(function () {
         if (!SS.state.running) return;
@@ -723,6 +849,8 @@
       SS.state.token += 1;
       SS.state.running = false;
       SS.state.isAnimating = false;
+      SS.state.effectBag = [];
+      SS.state.lastEffect = null;
 
       SS.clearTimers();
       SS.killAnimation();
