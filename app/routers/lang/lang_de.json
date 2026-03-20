@@ -150,5 +150,6 @@
   "cfg.help_slideshow_multiple_animations": "Mehrfachauswahl möglich.",
   "cfg.label_slideshow_random_effect": "Zufälligen Effekt verwenden",
   "cfg.label_slideshow_folder": "Bilderordner",
-  "cfg.help_slideshow_folder_static": "Statischer Ordner relativ zur index.html."
+  "cfg.help_slideshow_folder_static": "Statischer Ordner relativ zur index.html.",
+  "cfg.label_image_random": "Bilder zufällig sortieren"
 }

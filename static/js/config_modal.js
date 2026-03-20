@@ -605,6 +605,9 @@
 
     HK.setChk("#cfg_slideshow_enabled", !!(cfg.slideshow && cfg.slideshow.enabled));
 
+    HK.setChk("#cfg_slideshow_image_random", !!(cfg.slideshow && cfg.slideshow.image_random));
+    
+
     HK.setVal(
       "#cfg_slideshow_image_duration",
       (cfg.slideshow && cfg.slideshow.image_duration) || 10
@@ -701,6 +704,7 @@
 
     const slideshow = {
       enabled: $("#cfg_slideshow_enabled").is(":checked"),
+      image_random: $("#cfg_slideshow_image_random").is(":checked"),
       image_duration: parseInt($("#cfg_slideshow_image_duration").val() || "10", 10),
       animation_duration: parseInt($("#cfg_slideshow_animation_duration").val() || "500", 10),
       animations: slideshowAnimations,

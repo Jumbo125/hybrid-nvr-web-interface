@@ -76,5 +76,19 @@
   "live": {
     "stream_mode": "auto",
     "stream_switch_delay_ms": 500
+  },
+  "slideshow": {
+    "enabled": true,
+    "image_duration": 5,
+    "animation_duration": 1000,
+    "animations": [
+      "right",
+      "top",
+      "bottom",
+      "left"
+    ],
+    "random_effect": true,
+    "folder": "slideshow/",
+    "image_random": true
   }
 }
