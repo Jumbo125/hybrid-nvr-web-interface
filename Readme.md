@@ -9,7 +9,7 @@
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-UI-7952B3?logo=bootstrap)
 ![ffmpeg](https://img.shields.io/badge/ffmpeg-remuxing-007808?logo=ffmpeg)
 
-# hikvision-nvr-web-interface
+# Hikvision Live Playback UI
 
 <p align="center">
   <a href="#english">English</a> | <a href="#deutsch">Deutsch</a>
